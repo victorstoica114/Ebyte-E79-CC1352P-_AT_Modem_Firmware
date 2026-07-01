@@ -1,0 +1,21 @@
+# Build outputs
+build/
+*.obj
+*.out
+*.map
+*.hex
+*.bin
+
+# Toolchains and vendor SDKs are external dependencies.
+tools/
+sdk/
+downloads/
+tmp/
+
+# PlatformIO local state
+.pio/
+.vscode/.browse.c_cpp.db*
+
+# OS/editor noise
+.DS_Store
+Thumbs.db

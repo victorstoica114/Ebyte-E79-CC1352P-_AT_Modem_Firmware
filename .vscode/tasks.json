@@ -1,0 +1,99 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "CC1352P: Build E79 AT modem",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/build-e79-at-modem.ps1"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "CC1352P: Flash E79 AT modem",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/flash-e79-at-modem.ps1"
+            ],
+            "dependsOn": "CC1352P: Build E79 AT modem",
+            "problemMatcher": []
+        },
+        {
+            "label": "CC1352P: Flash E79 AT modem UART",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/flash-e79-at-modem-uart.ps1",
+                "-Port",
+                "${input:uartComPort}"
+            ],
+            "dependsOn": "CC1352P: Build E79 AT modem",
+            "problemMatcher": []
+        },
+        {
+            "label": "ESP32: Build CC1352P UART bridge",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/build-esp32-cc1352-bridge.ps1"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "ESP32: Flash CC1352P UART bridge",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/flash-esp32-cc1352-bridge.ps1",
+                "-Port",
+                "${input:esp32BridgeComPort}"
+            ],
+            "dependsOn": "ESP32: Build CC1352P UART bridge",
+            "problemMatcher": []
+        },
+        {
+            "label": "CC1352P: Flash E79 AT modem via ESP32 bridge",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/flash-e79-at-modem-via-esp32.ps1",
+                "-Port",
+                "${input:esp32BridgeComPort}"
+            ],
+            "dependsOn": "CC1352P: Build E79 AT modem",
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "uartComPort",
+            "type": "promptString",
+            "description": "USB-UART COM port for CC1352P ROM bootloader, e.g. COM5"
+        },
+        {
+            "id": "esp32BridgeComPort",
+            "type": "promptString",
+            "description": "ESP32-C3 native USB bridge COM port, e.g. COM19"
+        }
+    ]
+}
