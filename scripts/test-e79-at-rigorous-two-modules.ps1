@@ -1,7 +1,7 @@
 param(
     [string]$PortA = 'COM19',
     [string]$PortB = 'COM22',
-    [int]$BridgeBaud = 115200
+    [int]$BridgeBaud = 1000000
 )
 
 $ErrorActionPreference = 'Stop'
@@ -220,13 +220,8 @@ function Configure-Bridge {
     $Device.Serial.Open()
     Start-Sleep -Milliseconds 500
     [void]$Device.Serial.ReadExisting()
-    if ($BridgeBaud -ne 115200) {
-        $Device.Serial.Write("~CC1352P_BAUD=$BridgeBaud`n")
-        Drain-All -DurationMs 900
-    }
-    else {
-        Drain-All -DurationMs 300
-    }
+    $Device.Serial.Write("~CC1352P_BAUD=$BridgeBaud`n")
+    Drain-All -DurationMs 900
     Clear-Lines -Device $Device
 }
 

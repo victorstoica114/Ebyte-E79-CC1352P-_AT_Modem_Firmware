@@ -2,7 +2,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Port,
 
-    [int]$Baud = 500000,
+    [int]$Baud = 1000000,
 
     [int]$PreResetDelaySeconds = 0
 )
@@ -24,11 +24,6 @@ if (-not (Test-Path -LiteralPath $sbl)) {
 function Set-BridgeBaud {
     param([string]$SerialPort, [int]$TargetBaud)
 
-    if ($TargetBaud -eq 115200) {
-        Write-Host "Using bridge default target UART baud 115200; no baud command needed."
-        return
-    }
-
     $serial = [System.IO.Ports.SerialPort]::new($SerialPort, 115200, [System.IO.Ports.Parity]::None, 8, [System.IO.Ports.StopBits]::One)
     $serial.Handshake = [System.IO.Ports.Handshake]::None
     $serial.DtrEnable = $false
@@ -40,6 +35,7 @@ function Set-BridgeBaud {
         $serial.Open()
         Start-Sleep -Milliseconds 300
         $serial.DiscardInBuffer()
+        Write-Host "Setting ESP32 bridge target UART baud to $TargetBaud..."
         $serial.Write("~CC1352P_BAUD=$TargetBaud`n")
         Start-Sleep -Milliseconds 300
         $serial.DiscardInBuffer()

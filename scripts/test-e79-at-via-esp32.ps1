@@ -4,6 +4,8 @@ param(
 
     [string]$Command = "AT",
 
+    [int]$Baud = 1000000,
+
     [int]$TimeoutMs = 1500,
 
     [switch]$NoWarmup
@@ -33,6 +35,8 @@ try {
     Start-Sleep -Milliseconds 300
 
     $serial.DiscardInBuffer()
+    $serial.Write("~CC1352P_BAUD=$Baud`n")
+    Drain-Input -SerialPort $serial -DurationMs 600
 
     if (-not $NoWarmup -and $Command -ne "AT") {
         $serial.Write("AT`r`n")

@@ -4,7 +4,7 @@ param(
 
     [string[]]$Commands = @('AT', 'AT+VERSION?', 'AT'),
 
-    [int]$Baud = 115200,
+    [int]$Baud = 1000000,
 
     [int]$DelayMs = 300,
 
@@ -25,11 +25,9 @@ try {
     Start-Sleep -Milliseconds 300
 
     $serial.DiscardInBuffer()
-    if ($Baud -ne 115200) {
-        $serial.Write("~CC1352P_BAUD=$Baud`n")
-        Start-Sleep -Milliseconds 600
-        $serial.DiscardInBuffer()
-    }
+    $serial.Write("~CC1352P_BAUD=$Baud`n")
+    Start-Sleep -Milliseconds 600
+    $serial.DiscardInBuffer()
 
     $response = New-Object System.Text.StringBuilder
 

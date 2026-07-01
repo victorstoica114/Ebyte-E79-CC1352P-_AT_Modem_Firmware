@@ -2,17 +2,48 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Port,
 
-    [int]$Baud = 115200,
+    [int]$Baud = 1000000,
 
     [int]$PreSyncDelaySeconds = 8,
 
     [switch]$EnterBootloaderFromEsp32,
 
-    [switch]$PulseResetFromEsp32
+    [switch]$PulseResetFromEsp32,
+
+    [switch]$NoResetAfterFlash
 )
 
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\env.ps1"
+
+function Send-PostFlashReset {
+    param([string]$PortName)
+
+    $serial = [System.IO.Ports.SerialPort]::new($PortName, 115200, [System.IO.Ports.Parity]::None, 8, [System.IO.Ports.StopBits]::One)
+    $serial.Handshake = [System.IO.Ports.Handshake]::None
+    $serial.DtrEnable = $false
+    $serial.RtsEnable = $false
+    $serial.ReadTimeout = 500
+    $serial.WriteTimeout = 500
+
+    try {
+        $serial.Open()
+        Start-Sleep -Milliseconds 300
+        $serial.DiscardInBuffer()
+        $serial.Write("~CC1352P_BOOT=HIGH`n")
+        $serial.BaseStream.Flush()
+        Start-Sleep -Milliseconds 80
+        $serial.Write("~CC1352P_RESET`n")
+        $serial.BaseStream.Flush()
+        Start-Sleep -Milliseconds 350
+    }
+    finally {
+        if ($serial.IsOpen) {
+            $serial.Close()
+        }
+        $serial.Dispose()
+    }
+}
 
 $sbl = Join-Path $RepoRoot 'scripts\ti-python-sbl-esp32-bridge.py'
 $bin = Join-Path $RepoRoot 'firmware\e79_at_modem\gcc\e79_at_modem.bin'
@@ -25,12 +56,7 @@ if (-not (Test-Path -LiteralPath $bin)) {
 }
 
 Write-Host "Using ESP32 bridge on $Port at CC1352P UART baud $Baud."
-if ($Baud -ne 115200) {
-    Write-Host "Setting ESP32 bridge target UART baud to $Baud..."
-}
-else {
-    Write-Host "Using bridge default target UART baud 115200; no baud command needed."
-}
+Write-Host "Setting ESP32 bridge target UART baud to $Baud..."
 
 $serial = [System.IO.Ports.SerialPort]::new($Port, 115200, [System.IO.Ports.Parity]::None, 8, [System.IO.Ports.StopBits]::One)
 $serial.Handshake = [System.IO.Ports.Handshake]::None
@@ -43,10 +69,8 @@ try {
     $serial.Open()
     Start-Sleep -Milliseconds 300
     $serial.DiscardInBuffer()
-    if ($Baud -ne 115200) {
-        $serial.Write("~CC1352P_BAUD=$Baud`n")
-        Start-Sleep -Milliseconds 600
-    }
+    $serial.Write("~CC1352P_BAUD=$Baud`n")
+    Start-Sleep -Milliseconds 600
     if ($EnterBootloaderFromEsp32) {
         Write-Host "Entering CC1352P ROM bootloader through ESP32 GPIO3/GPIO10..."
         $serial.Write("~CC1352P_ENTER_BOOTLOADER`n")
@@ -78,4 +102,9 @@ Write-Host "Starting TI ROM serial bootloader flash through ESP32 bridge..."
 & python $sbl -d CC13X2 -p $Port -b $Baud --no-invoke-bootloader -f -e -w -v -a 0x0 $bin
 if ($LASTEXITCODE -ne 0) {
     throw "ESP32 bridge UART serial bootloader flash failed with exit code $LASTEXITCODE"
+}
+
+if ($EnterBootloaderFromEsp32 -and -not $NoResetAfterFlash) {
+    Write-Host "Resetting CC1352P back into the AT firmware through ESP32 GPIO10..."
+    Send-PostFlashReset -PortName $Port
 }

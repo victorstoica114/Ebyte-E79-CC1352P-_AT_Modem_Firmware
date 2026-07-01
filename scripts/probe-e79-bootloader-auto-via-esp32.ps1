@@ -2,7 +2,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Port,
 
-    [int]$Baud = 115200,
+    [int]$Baud = 1000000,
 
     [int]$SyncTimeoutMs = 3000
 )
@@ -42,14 +42,9 @@ try {
     Start-Sleep -Milliseconds 300
     $serial.DiscardInBuffer()
 
-    if ($Baud -ne 115200) {
-        Write-Host "Setting ESP32 bridge target UART baud to $Baud..."
-        Send-BridgeCommand -SerialPort $serial -Command "~CC1352P_BAUD=$Baud" -DelayMs 300
-        $serial.DiscardInBuffer()
-    }
-    else {
-        Write-Host "Using bridge default target UART baud 115200; no baud command needed."
-    }
+    Write-Host "Setting ESP32 bridge target UART baud to $Baud..."
+    Send-BridgeCommand -SerialPort $serial -Command "~CC1352P_BAUD=$Baud" -DelayMs 300
+    $serial.DiscardInBuffer()
 
     Write-Host "Entering bootloader through ESP32 GPIO3/GPIO10..."
     Send-BridgeCommand -SerialPort $serial -Command "~CC1352P_ENTER_BOOTLOADER" -DelayMs 650

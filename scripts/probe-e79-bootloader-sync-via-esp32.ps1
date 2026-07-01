@@ -2,7 +2,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Port,
 
-    [int]$Baud = 500000,
+    [int]$Baud = 1000000,
 
     [int]$PreSyncDelaySeconds = 15,
 
@@ -28,14 +28,10 @@ try {
     Start-Sleep -Milliseconds 300
 
     $serial.DiscardInBuffer()
-    if ($Baud -ne 115200) {
-        $serial.Write("~CC1352P_BAUD=$Baud`n")
-        Start-Sleep -Milliseconds 300
-        $serial.DiscardInBuffer()
-    }
-    else {
-        Write-Host "Using bridge default target UART baud 115200; no baud command needed."
-    }
+    Write-Host "Setting ESP32 bridge target UART baud to $Baud..."
+    $serial.Write("~CC1352P_BAUD=$Baud`n")
+    Start-Sleep -Milliseconds 300
+    $serial.DiscardInBuffer()
 
     Start-Sleep -Seconds $PreSyncDelaySeconds
 

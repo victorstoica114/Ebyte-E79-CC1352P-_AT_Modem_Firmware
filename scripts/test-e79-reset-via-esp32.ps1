@@ -1,7 +1,7 @@
 param(
     [string]$Port = 'COM22',
 
-    [int]$Baud = 115200,
+    [int]$Baud = 1000000,
 
     [int]$PostResetDelayMs = 1200
 )
@@ -70,11 +70,9 @@ try {
     Start-Sleep -Milliseconds 300
     $serial.DiscardInBuffer()
 
-    if ($Baud -ne 115200) {
-        Write-Host "Setting CC1352P UART baud to $Baud..."
-        $serial.Write("~CC1352P_BAUD=$Baud`n")
-        Drain-Input -SerialPort $serial -DurationMs 700
-    }
+    Write-Host "Setting CC1352P UART baud to $Baud..."
+    $serial.Write("~CC1352P_BAUD=$Baud`n")
+    Drain-Input -SerialPort $serial -DurationMs 700
 
     Write-Host "Checking AT link..."
     $at = Send-AtCommand -SerialPort $serial -Command 'AT' -TimeoutMs 2500

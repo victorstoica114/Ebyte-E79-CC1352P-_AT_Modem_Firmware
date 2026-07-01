@@ -17,9 +17,11 @@ SYSCFG_OPT_FILES = $(filter %.opt,$(SYSCFG_FILES))
 
 OBJECTS = RFQueue.obj main_nortos.obj e79_at_modem.obj $(patsubst %.c,%.obj,$(notdir $(SYSCFG_C_FILES)))
 NAME = e79_at_modem
+E79_UART_BAUD ?= 1000000
 
 CFLAGS += -I.. \
     -I. \
+    -DE79_UART_BAUD=$(E79_UART_BAUD) \
     $(addprefix @,$(SYSCFG_OPT_FILES)) \
     "-I$(SIMPLELINK_CC13XX_CC26XX_SDK_INSTALL_DIR)/source" \
     "-I$(SIMPLELINK_CC13XX_CC26XX_SDK_INSTALL_DIR)/kernel/nortos" \

@@ -2,6 +2,42 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "CC1352P: Build SDK GCC libs",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/build-sdk-gcc.ps1"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "CC1352P: Build rfDiagnostics AT",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/build-rfdiagnostics.ps1"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "CC1352P: Build rfUARTBridge",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/build-rfuartbridge.ps1"
+            ],
+            "problemMatcher": []
+        },
+        {
             "label": "CC1352P: Build E79 AT modem",
             "type": "shell",
             "command": "powershell",
@@ -14,7 +50,33 @@
             "problemMatcher": []
         },
         {
-            "label": "CC1352P: Flash E79 AT modem",
+            "label": "CC1352P: Flash rfDiagnostics AT",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/flash-rfdiagnostics.ps1"
+            ],
+            "dependsOn": "CC1352P: Build rfDiagnostics AT",
+            "problemMatcher": []
+        },
+        {
+            "label": "CC1352P: Flash rfUARTBridge",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/flash-rfuartbridge.ps1"
+            ],
+            "dependsOn": "CC1352P: Build rfUARTBridge",
+            "problemMatcher": []
+        },
+        {
+            "label": "CC1352P: Flash E79 AT modem (J-Link recovery)",
             "type": "shell",
             "command": "powershell",
             "args": [
@@ -27,7 +89,7 @@
             "problemMatcher": []
         },
         {
-            "label": "CC1352P: Flash E79 AT modem UART",
+            "label": "CC1352P: Flash E79 AT modem USB-UART manual BOOT",
             "type": "shell",
             "command": "powershell",
             "args": [
@@ -69,6 +131,21 @@
             "problemMatcher": []
         },
         {
+            "label": "CC1352P: Flash E79 AT modem via ESP32 manual BOOT",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/flash-e79-at-modem-via-esp32.ps1",
+                "-Port",
+                "${input:esp32BridgeComPort}"
+            ],
+            "dependsOn": "CC1352P: Build E79 AT modem",
+            "problemMatcher": []
+        },
+        {
             "label": "CC1352P: Probe ESP32 BOOT+RESET bootloader entry",
             "type": "shell",
             "command": "powershell",
@@ -83,22 +160,7 @@
             "problemMatcher": []
         },
         {
-            "label": "CC1352P: Flash E79 AT modem via ESP32 bridge",
-            "type": "shell",
-            "command": "powershell",
-            "args": [
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                "${workspaceFolder}/scripts/flash-e79-at-modem-via-esp32.ps1",
-                "-Port",
-                "${input:esp32BridgeComPort}"
-            ],
-            "dependsOn": "CC1352P: Build E79 AT modem",
-            "problemMatcher": []
-        },
-        {
-            "label": "CC1352P: Flash E79 AT modem via ESP32 auto BOOT+RESET",
+            "label": "CC1352P: Flash E79 AT modem via ESP32 (recommended)",
             "type": "shell",
             "command": "powershell",
             "args": [
@@ -112,6 +174,24 @@
             ],
             "dependsOn": "CC1352P: Build E79 AT modem",
             "problemMatcher": []
+        },
+        {
+            "label": "CC1352P: Test two E79 modules AT/RF",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/test-e79-at-rigorous-two-modules.ps1",
+                "-PortA",
+                "${input:e79PortA}",
+                "-PortB",
+                "${input:e79PortB}",
+                "-BridgeBaud",
+                "115200"
+            ],
+            "problemMatcher": []
         }
     ],
     "inputs": [
@@ -124,6 +204,18 @@
             "id": "esp32BridgeComPort",
             "type": "promptString",
             "description": "ESP32-C3 native USB bridge COM port, e.g. COM19"
+        },
+        {
+            "id": "e79PortA",
+            "type": "promptString",
+            "description": "First ESP32-C3 bridge COM port for E79 AT/RF tests",
+            "default": "COM19"
+        },
+        {
+            "id": "e79PortB",
+            "type": "promptString",
+            "description": "Second ESP32-C3 bridge COM port for E79 AT/RF tests",
+            "default": "COM22"
         }
     ]
 }

@@ -2,7 +2,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Port,
 
-    [int]$Baud = 115200,
+    [int]$Baud = 1000000,
 
     [int]$PreSyncDelaySeconds = 8
 )
