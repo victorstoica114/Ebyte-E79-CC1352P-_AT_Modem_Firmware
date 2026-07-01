@@ -6,6 +6,8 @@ param(
 
     [int]$PreSyncDelaySeconds = 8,
 
+    [switch]$EnterBootloaderFromEsp32,
+
     [switch]$PulseResetFromEsp32
 )
 
@@ -45,7 +47,13 @@ try {
         $serial.Write("~CC1352P_BAUD=$Baud`n")
         Start-Sleep -Milliseconds 600
     }
-    if ($PulseResetFromEsp32) {
+    if ($EnterBootloaderFromEsp32) {
+        Write-Host "Entering CC1352P ROM bootloader through ESP32 GPIO3/GPIO10..."
+        $serial.Write("~CC1352P_ENTER_BOOTLOADER`n")
+        $serial.BaseStream.Flush()
+        Start-Sleep -Milliseconds 650
+    }
+    elseif ($PulseResetFromEsp32) {
         Write-Host "Sending reset pulse command through the ESP32 bridge..."
         $serial.Write("~CC1352P_RESET`n")
         $serial.BaseStream.Flush()
@@ -59,7 +67,7 @@ finally {
     $serial.Dispose()
 }
 
-if (-not $PulseResetFromEsp32) {
+if (-not $PulseResetFromEsp32 -and -not $EnterBootloaderFromEsp32) {
     Write-Host "Hold CC1352P BOOT low now (E79 BOOT = DIO15 active-low)."
     Write-Host "During the next $PreSyncDelaySeconds seconds, pulse RESET manually, then keep BOOT held."
     Start-Sleep -Seconds $PreSyncDelaySeconds

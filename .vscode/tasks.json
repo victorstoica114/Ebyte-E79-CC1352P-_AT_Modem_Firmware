@@ -69,6 +69,20 @@
             "problemMatcher": []
         },
         {
+            "label": "CC1352P: Probe ESP32 BOOT+RESET bootloader entry",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/probe-e79-bootloader-auto-via-esp32.ps1",
+                "-Port",
+                "${input:esp32BridgeComPort}"
+            ],
+            "problemMatcher": []
+        },
+        {
             "label": "CC1352P: Flash E79 AT modem via ESP32 bridge",
             "type": "shell",
             "command": "powershell",
@@ -79,6 +93,22 @@
                 "${workspaceFolder}/scripts/flash-e79-at-modem-via-esp32.ps1",
                 "-Port",
                 "${input:esp32BridgeComPort}"
+            ],
+            "dependsOn": "CC1352P: Build E79 AT modem",
+            "problemMatcher": []
+        },
+        {
+            "label": "CC1352P: Flash E79 AT modem via ESP32 auto BOOT+RESET",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/flash-e79-at-modem-via-esp32.ps1",
+                "-Port",
+                "${input:esp32BridgeComPort}",
+                "-EnterBootloaderFromEsp32"
             ],
             "dependsOn": "CC1352P: Build E79 AT modem",
             "problemMatcher": []

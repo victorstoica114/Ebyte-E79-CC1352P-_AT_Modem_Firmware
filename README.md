@@ -58,6 +58,33 @@ Baud-ul USB CDC ales pe PC nu este viteza fizica importanta aici. Legatura relev
 
 Comanda `~CC1352P_BAUD=<baud>` ramane disponibila doar pentru experimente cu alte viteze.
 
+## ESP32 BOOT + RESET Control
+
+Bridge-ul poate controla intrarea in TI ROM bootloader cand hardware-ul leaga:
+
+- ESP32 `GPIO3` -> E79 `BOOT` / CC1352P `DIO15`, active low.
+- ESP32 `GPIO10` -> CC1352P `RESET_N`, active low.
+
+Comenzi locale consumate de bridge:
+
+```text
+~CC1352P_BOOT=LOW
+~CC1352P_BOOT=HIGH
+~CC1352P_ENTER_BOOTLOADER
+```
+
+Test non-distructiv:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\probe-e79-bootloader-auto-via-esp32.ps1 -Port COM22
+```
+
+Succesul asteptat este:
+
+```text
+ACK: 00 CC
+```
+
 ## Build
 
 ```powershell
@@ -85,7 +112,13 @@ Dupa ce imaginea cu CCFG backdoor a fost scrisa macar o data, se poate face upda
 powershell -ExecutionPolicy Bypass -File .\scripts\flash-e79-at-modem-uart.ps1 -Port COM5
 ```
 
-Prin ESP32-C3 bridge:
+Prin ESP32-C3 bridge cu BOOT + RESET automat:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\flash-e79-at-modem-via-esp32.ps1 -Port COM22 -EnterBootloaderFromEsp32
+```
+
+Prin ESP32-C3 bridge cu BOOT/RESET manual:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\flash-e79-at-modem-via-esp32.ps1 -Port COM22
