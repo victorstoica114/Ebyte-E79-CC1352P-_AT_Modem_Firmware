@@ -17,10 +17,15 @@ With J-Link connected, readback of `AON_PMCTL:RESETCTL` also stayed at
 `RESET_SRC=SYSRESET` instead of changing to `PIN_RESET`. Keep using manual RESET
 or J-Link reset for now.
 
-The bridge normally forwards bytes unchanged at 500000 baud. For the AT
-application UART, set it to 115200 first with `~CC1352P_BAUD=115200\n`.
-The only local
-commands it consumes are:
+The bridge normally forwards bytes unchanged. Its default target UART baud
+toward the CC1352P is `115200`, matching the E79 AT modem firmware.
+
+The PC-side USB CDC baud selected by a terminal or script is not the important
+physical link speed here. Native USB CDC is packet-based; the critical baud is
+the internal ESP32-C3 UART to CC1352P (`GPIO20/GPIO21`), controlled by
+`CC1352_BRIDGE_HOST_BAUD` and currently set to `115200`.
+
+The only local commands the bridge consumes are:
 
 ```text
 ~CC1352P_RESET\n
@@ -28,7 +33,8 @@ commands it consumes are:
 ```
 
 `RESET` pulses `GPIO10`, then the bridge returns to transparent mode.
-`BAUD` changes the ESP32 UART baud rate toward CC1352P. Supported values are
+`BAUD` changes the ESP32 UART baud rate toward CC1352P when a non-default rate
+is needed for experiments. Supported values are
 `9600`, `38400`, `57600`, `115200`, `230400`, `460800`, `500000`, `921600`, and
 `1000000`.
 
@@ -60,6 +66,6 @@ Hold BOOT, run:
 
 Keep BOOT held until the TI serial bootloader has started syncing. The default
 script path assumes manual CC1352P reset during the printed countdown and uses
-115200 baud, which was validated as stable through the ESP32 bridge. If the
-reset pulse through `GPIO10` is fixed on a later board, add
-`-PulseResetFromEsp32`.
+the bridge default `115200` target UART baud, which was validated as stable
+through the ESP32 bridge. If the reset pulse through `GPIO10` is fixed on a
+later board, add `-PulseResetFromEsp32`.

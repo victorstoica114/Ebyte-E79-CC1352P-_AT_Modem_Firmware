@@ -19,6 +19,11 @@ if (-not (Test-Path -LiteralPath $JLinkExe)) {
 function Set-BridgeBaud {
     param([string]$SerialPort, [int]$TargetBaud)
 
+    if ($TargetBaud -eq 115200) {
+        Write-Host "Using bridge default target UART baud 115200; no baud command needed."
+        return
+    }
+
     $serial = [System.IO.Ports.SerialPort]::new($SerialPort, 115200, [System.IO.Ports.Parity]::None, 8, [System.IO.Ports.StopBits]::One)
     $serial.Handshake = [System.IO.Ports.Handshake]::None
     $serial.DtrEnable = $false

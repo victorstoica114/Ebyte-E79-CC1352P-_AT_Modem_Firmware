@@ -19,7 +19,12 @@ if (-not (Test-Path -LiteralPath $sbl)) {
 }
 
 Write-Host "Using ESP32 bridge on $Port at CC1352P UART baud $Baud."
-Write-Host "Setting ESP32 bridge target UART baud..."
+if ($Baud -ne 115200) {
+    Write-Host "Setting ESP32 bridge target UART baud to $Baud..."
+}
+else {
+    Write-Host "Using bridge default target UART baud 115200; no baud command needed."
+}
 
 $serial = [System.IO.Ports.SerialPort]::new($Port, 115200, [System.IO.Ports.Parity]::None, 8, [System.IO.Ports.StopBits]::One)
 $serial.Handshake = [System.IO.Ports.Handshake]::None
@@ -32,8 +37,10 @@ try {
     $serial.Open()
     Start-Sleep -Milliseconds 300
     $serial.DiscardInBuffer()
-    $serial.Write("~CC1352P_BAUD=$Baud`n")
-    Start-Sleep -Milliseconds 600
+    if ($Baud -ne 115200) {
+        $serial.Write("~CC1352P_BAUD=$Baud`n")
+        Start-Sleep -Milliseconds 600
+    }
     if ($PulseResetFromEsp32) {
         Write-Host "Sending reset pulse command through the ESP32 bridge..."
         $serial.Write("~CC1352P_RESET`n")

@@ -150,7 +150,7 @@ Prin ESP32-C3 bridge pe schema curenta:
 powershell -ExecutionPolicy Bypass -File .\scripts\flash-e79-at-modem-via-esp32.ps1 -Port COM22
 ```
 
-In acest mod ESP32 este doar bridge USB CDC -> UART. Scriptul seteaza UART-ul bridge-ului la `115200`, apoi asteapta resetul manual al CC1352P cu `BOOT/DIO15` tinut low. Varianta validata pe modulul de test a terminat cu verify CRC OK (`0x4ef75cf7`).
+In acest mod ESP32 este doar bridge USB CDC -> UART. Baud-ul USB CDC ales de PC nu este viteza fizica importanta; legatura relevanta este UART-ul intern ESP32-C3 -> CC1352P. Bridge-ul porneste implicit acest UART la `115200`, identic cu firmware-ul AT, deci scriptul nu mai trimite `~CC1352P_BAUD=115200` cand ramane pe default. Apoi asteapta resetul manual al CC1352P cu `BOOT/DIO15` tinut low. Varianta validata pe modulul de test a terminat cu verify CRC OK (`0x4ef75cf7`).
 
 Pentru proba non-distructiva a bootloaderului prin ESP32 bridge:
 

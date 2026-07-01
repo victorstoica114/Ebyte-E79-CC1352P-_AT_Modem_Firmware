@@ -28,9 +28,14 @@ try {
     Start-Sleep -Milliseconds 300
 
     $serial.DiscardInBuffer()
-    $serial.Write("~CC1352P_BAUD=$Baud`n")
-    Start-Sleep -Milliseconds 300
-    $serial.DiscardInBuffer()
+    if ($Baud -ne 115200) {
+        $serial.Write("~CC1352P_BAUD=$Baud`n")
+        Start-Sleep -Milliseconds 300
+        $serial.DiscardInBuffer()
+    }
+    else {
+        Write-Host "Using bridge default target UART baud 115200; no baud command needed."
+    }
 
     Start-Sleep -Seconds $PreSyncDelaySeconds
 

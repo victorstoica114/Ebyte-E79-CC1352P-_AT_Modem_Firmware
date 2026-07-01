@@ -46,6 +46,18 @@ $env:JLINK_EXE = "D:\path\JLink.exe"
 - Programare initiala: J-Link cJTAG/JTAG, device `CC1352P1F3`.
 - ROM serial bootloader backdoor: `BOOT/DIO15`, active-low, configurat in CCFG de firmware.
 
+## ESP32 Bridge Baud
+
+Bridge-ul ESP32-C3 porneste implicit UART-ul intern catre CC1352P la `115200`, prin `CC1352_BRIDGE_HOST_BAUD`.
+
+Baud-ul USB CDC ales pe PC nu este viteza fizica importanta aici. Legatura relevanta este UART-ul intern ESP32-C3 -> CC1352P pe `GPIO20/GPIO21`. De aceea, dupa reset sau power-cycle, nu mai este nevoie de:
+
+```text
+~CC1352P_BAUD=115200
+```
+
+Comanda `~CC1352P_BAUD=<baud>` ramane disponibila doar pentru experimente cu alte viteze.
+
 ## Build
 
 ```powershell
