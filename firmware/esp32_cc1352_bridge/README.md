@@ -20,6 +20,11 @@ If another hardware spin uses inverting transistors, override the build flags
 `CC1352_BOOT_ACTIVE_LOW`, `CC1352_RESET_ACTIVE_LOW`, `CC1352_BOOT_OPEN_DRAIN`,
 or `CC1352_RESET_OPEN_DRAIN`.
 
+For USB-UART converter bootloader tests, set `CC1352_TARGET_CONTROL_ENABLED=0`.
+That leaves ESP32 `GPIO3` and `GPIO10` as inputs/Hi-Z so external DTR/RTS
+transistor logic can drive CC1352P `BOOT/DIO15` and `RESET_N` without fighting
+the ESP32. The current `platformio.ini` is configured this way.
+
 The bridge normally forwards bytes unchanged. Its default target UART baud
 toward the CC1352P is `1000000`, matching the E79 AT modem firmware.
 
@@ -42,12 +47,14 @@ forwarded to CC1352P.
 ~CC1352P_BAUD=<baud>\n
 ```
 
-- `RESET` pulses `GPIO10`, then the bridge returns to transparent mode.
-- `BOOT=LOW` holds E79 `BOOT/DIO15` active.
-- `BOOT=HIGH` releases E79 `BOOT/DIO15`.
+- `RESET` pulses `GPIO10`, then the bridge returns to transparent mode when
+  `CC1352_TARGET_CONTROL_ENABLED=1`.
+- `BOOT=LOW` holds E79 `BOOT/DIO15` active when target control is enabled.
+- `BOOT=HIGH` releases E79 `BOOT/DIO15` when target control is enabled.
 - `ENTER_BOOTLOADER` holds BOOT low, pulses RESET, waits for the CC1352P to
-  sample the backdoor pin, then releases BOOT. The host can then send TI ROM
-  SBL sync bytes `55 55` through the transparent bridge.
+  sample the backdoor pin, then releases BOOT when target control is enabled.
+  The host can then send TI ROM SBL sync bytes `55 55` through the transparent
+  bridge.
 - `BAUD` changes the ESP32 UART baud rate toward CC1352P when a non-default
   rate is needed for experiments.
 

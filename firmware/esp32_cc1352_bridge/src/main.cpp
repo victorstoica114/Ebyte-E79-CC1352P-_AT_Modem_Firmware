@@ -15,6 +15,10 @@ static constexpr int CC1352_RESET_PIN = 10;    // Drives CC1352P RESET_N
 #define CC1352_BRIDGE_HOST_BAUD 1000000
 #endif
 
+#ifndef CC1352_TARGET_CONTROL_ENABLED
+#define CC1352_TARGET_CONTROL_ENABLED 1
+#endif
+
 #ifndef CC1352_BOOT_ACTIVE_LOW
 #define CC1352_BOOT_ACTIVE_LOW 1
 #endif
@@ -32,6 +36,7 @@ static constexpr int CC1352_RESET_PIN = 10;    // Drives CC1352P RESET_N
 #endif
 
 static constexpr uint32_t CC1352_UART_BAUD = CC1352_BRIDGE_HOST_BAUD;
+static constexpr bool CC1352_CONTROL_ENABLED = CC1352_TARGET_CONTROL_ENABLED != 0;
 static constexpr int CC1352_BOOT_ACTIVE_LEVEL = CC1352_BOOT_ACTIVE_LOW ? LOW : HIGH;
 static constexpr int CC1352_BOOT_IDLE_LEVEL = CC1352_BOOT_ACTIVE_LOW ? HIGH : LOW;
 static constexpr int CC1352_RESET_ACTIVE_LEVEL = CC1352_RESET_ACTIVE_LOW ? LOW : HIGH;
@@ -96,6 +101,11 @@ static void led1HzService()
 
 static void driveControlPin(int pin, bool active, int activeLevel, int idleLevel, bool openDrain)
 {
+    if (!CC1352_CONTROL_ENABLED) {
+        pinMode(pin, INPUT);
+        return;
+    }
+
     if (openDrain && activeLevel == LOW) {
         if (active) {
             digitalWrite(pin, LOW);
@@ -110,6 +120,12 @@ static void driveControlPin(int pin, bool active, int activeLevel, int idleLevel
 
     pinMode(pin, OUTPUT);
     digitalWrite(pin, active ? activeLevel : idleLevel);
+}
+
+static void releaseCc1352ControlPins()
+{
+    pinMode(CC1352_BOOT_PIN, INPUT);
+    pinMode(CC1352_RESET_PIN, INPUT);
 }
 
 static void setCc1352BootActive(bool active)
@@ -132,6 +148,11 @@ static void setCc1352ResetActive(bool active)
 
 static void pulseCc1352Reset()
 {
+    if (!CC1352_CONTROL_ENABLED) {
+        releaseCc1352ControlPins();
+        return;
+    }
+
     setCc1352ResetActive(false);
     delay(20);
     setCc1352ResetActive(true);
@@ -142,6 +163,11 @@ static void pulseCc1352Reset()
 
 static void enterCc1352Bootloader()
 {
+    if (!CC1352_CONTROL_ENABLED) {
+        releaseCc1352ControlPins();
+        return;
+    }
+
     setCc1352BootActive(true);
     delay(20);
     pulseCc1352Reset();
