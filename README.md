@@ -1,163 +1,156 @@
-# Ebyte E79 CC1352P AT Modem Firmware
+# CC1352P / E79-400DM2005S Workspace
 
-Firmware pentru modulul Ebyte E79-400DM2005S, bazat pe TI CC1352P. Modulul nu
-este tratat ca radio SPI/UART simplu: CC1352P ruleaza firmware propriu si
-expune catre host un modem radio UART cu comenzi AT.
+Acest workspace este pentru firmware-ul separat care ruleaza pe MCU-ul TI
+CC1352P din modulul Ebyte E79-400DM2005S. E79 nu este tratat ca radio SPI
+simplu: CC1352P ruleaza firmware propriu si expune catre ESP32 un modem radio
+UART cu comenzi AT.
 
-## Continut
+Fluxul normal validat acum este:
 
-- `firmware/e79_at_modem` - firmware-ul CC1352P AT radio modem.
-- `firmware/esp32_cc1352_bridge` - bridge ESP32-C3 USB CDC <-> UART CC1352P,
-  util pentru test si update prin TI ROM serial bootloader.
-- `scripts` - build, flash, probe, teste automate si stress test.
-- `.vscode/tasks.json` - task-uri VSCode pentru fluxul uzual.
+1. ESP32-C3 ruleaza bridge-ul USB CDC -> UART CC1352P.
+2. ESP32 controleaza `BOOT/DIO15` prin GPIO3 si `RESET_N` prin GPIO10.
+3. CC1352P intra automat in TI ROM serial bootloader.
+4. Firmware-ul E79 AT modem se scrie prin UART, fara J-Link.
 
-SDK-ul TI, toolchain-ul GCC, SysConfig, J-Link, datasheet-urile si cache-urile
-de build nu sunt incluse in repo-ul public.
+J-Link ramane util ca plasa de siguranta pentru recovery, citire registre sau
+module cu CCFG necunoscut, dar nu mai este necesar in fluxul normal de update.
 
-## Dependinte
+## Ce este instalat local
 
-- TI SimpleLink Low Power F2 SDK 8.33.00.16 sau compatibil.
-- GNU Arm Embedded `gcc-arm-none-eabi` 9-2019-q4-major.
-- TI SysConfig 1.21.1.
-- `mingw32-make.exe`, de obicei instalat cu pachetul TI/GCC folosit pentru
-  exemple.
-- SEGGER J-Link pentru recovery cJTAG/JTAG.
-- PlatformIO, doar pentru `firmware/esp32_cc1352_bridge`.
+- TI SimpleLink Low Power F2 SDK: `sdk/simplelink-lowpower-f2-sdk`
+- TI Proprietary RF examples: `sdk/simplelink-prop_rf-examples`
+- ARM GCC 9-2019-q4-major: `tools/gcc-arm-none-eabi-9-2019-q4-major`
+- TI SysConfig 1.21.1: `tools/sysconfig_1.21.1`
+- SEGGER J-Link V9.54: `tools/SEGGER/JLink_V954` (fallback/recovery)
 
-Scripturile accepta dependintele fie in layout local:
+## Build testat
 
-```text
-sdk/simplelink-lowpower-f2-sdk
-tools/gcc-arm-none-eabi-9-2019-q4-major
-tools/sysconfig_1.21.1
-tools/SEGGER/JLink_V954
-```
+Au fost compilate cu succes:
 
-fie prin variabile de mediu:
+- `rfDiagnostics` pentru `CC1352P1_LAUNCHXL`
+- `rfUARTBridge` pentru `CC1352P1_LAUNCHXL`
+- `e79_at_modem` pentru E79/CC1352P, derivat din configuratia TI
+  `CC1352P_4_LAUNCHXL` la 433 MHz
+- bridge-ul ESP32-C3 din `firmware/esp32_cc1352_bridge`
 
-```powershell
-$env:SIMPLELINK_CC13XX_CC26XX_SDK_INSTALL_DIR = "D:\path\simplelink-lowpower-f2-sdk"
-$env:GCC_ARMCOMPILER = "D:\path\gcc-arm-none-eabi-9-2019-q4-major"
-$env:SYSCONFIG_TOOL = "D:\path\sysconfig_1.21.1\sysconfig_cli.bat"
-$env:JLINK_EXE = "D:\path\JLink.exe"
-```
+Firmware-ul util curent este in `firmware/e79_at_modem`.
 
-## Hardware
+## Flash validat
 
-- UART modem: `1000000 8N1`.
-- Fallback validat pentru stress: `460800 8N1`.
-- E79/CC1352P logic: 3.3 V, nu 5 V TTL.
-- CC1352P `DIO12` = UART RX, `DIO13` = UART TX.
-- ESP32 `GPIO20` = RX from CC1352P TX.
-- ESP32 `GPIO21` = TX to CC1352P RX.
-- ESP32 `GPIO3` -> E79 `BOOT` / CC1352P `DIO15`, active-low.
-- ESP32 `GPIO10` -> CC1352P `RESET_N`, active-low.
-- ROM serial bootloader backdoor: `BOOT/DIO15`, active-low, configurat in CCFG
-  de firmware.
+Validarea hardware curenta:
 
-## ESP32 Bridge Baud
+- ESP32 GPIO3 -> E79 `BOOT/DIO15`, active-low.
+- ESP32 GPIO10 -> E79 `RESET_N`, active-low.
+- ESP32 GPIO20/GPIO21 -> UART CC1352P la `1000000` baud.
+- TI ROM SBL raspunde la sync cu `ACK: 00 CC` pe ambele module testate.
+- Flash prin ESP32 bridge: mass erase + write + verify OK pe `COM19` si `COM22`.
+- Imagine scrisa: `firmware\e79_at_modem\gcc\e79_at_modem.bin`, 360448 bytes.
+- Verify CRC pe ambele module: `0x29bd3083`.
+- Test AT/RF complet dupa flash: `PASS: 150`, `FAIL: 0`.
 
-Bridge-ul ESP32-C3 porneste implicit UART-ul intern catre CC1352P la
-`1000000`, prin `CC1352_BRIDGE_HOST_BAUD`, identic cu firmware-ul AT.
+Baud-ul USB CDC PC -> ESP32 nu este viteza fizica importanta. Legatura critica
+este UART-ul intern ESP32-C3 -> CC1352P, iar bridge-ul porneste implicit la
+`1000000`, identic cu firmware-ul AT. `460800` ramane fallback-ul recomandat
+daca apar timeout-uri rare in teste de stress foarte agresive.
 
-Baud-ul USB CDC ales pe PC nu este viteza fizica importanta aici. Legatura
-relevanta este UART-ul intern ESP32-C3 -> CC1352P pe `GPIO20/GPIO21`.
+## Comenzi rapide
 
-`460800` ramane fallback-ul recomandat daca apar timeout-uri rare in teste de
-stress foarte agresive.
+Din PowerShell, in radacina workspace-ului.
 
-Comanda `~CC1352P_BAUD=<baud>` ramane disponibila pentru teste si fallback:
-
-```text
-9600,38400,57600,115200,230400,460800,500000,921600,1000000
-```
-
-## ESP32 BOOT + RESET Control
-
-Bridge-ul poate controla intrarea in TI ROM bootloader cand hardware-ul leaga:
-
-- ESP32 `GPIO3` -> E79 `BOOT` / CC1352P `DIO15`, active-low.
-- ESP32 `GPIO10` -> CC1352P `RESET_N`, active-low.
-
-Comenzi locale consumate de bridge:
-
-```text
-~CC1352P_RESET
-~CC1352P_BOOT=LOW
-~CC1352P_BOOT=HIGH
-~CC1352P_ENTER_BOOTLOADER
-~CC1352P_BAUD=<baud>
-```
-
-Test non-distructiv:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\probe-e79-bootloader-auto-via-esp32.ps1 -Port COM22
-```
-
-Succesul asteptat este:
-
-```text
-ACK: 00 CC
-```
-
-## Build
+Build firmware E79:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build-e79-at-modem.ps1
 ```
 
-Pentru fallback-ul stabil la `460800`:
+Build si flash ESP32 bridge:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build-e79-at-modem.ps1 -UartBaud 460800
+powershell -ExecutionPolicy Bypass -File .\scripts\build-esp32-cc1352-bridge.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\flash-esp32-cc1352-bridge.ps1 -Port COM19
 ```
 
-Rezultatele apar in:
+Proba non-distructiva pentru intrare automata in ROM bootloader:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\probe-e79-bootloader-auto-via-esp32.ps1 -Port COM19
+```
+
+Succesul asteptat:
 
 ```text
-firmware\e79_at_modem\gcc\e79_at_modem.hex
-firmware\e79_at_modem\gcc\e79_at_modem.bin
+ACK: 00 CC
 ```
 
-## Flash prin ESP32 bridge
-
-Flux normal, fara J-Link si fara butoane, cand ESP32 controleaza BOOT + RESET:
+Flash CC1352P prin ESP32 bridge, fara butoane si fara J-Link:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\flash-e79-at-modem-via-esp32.ps1 -Port COM22 -EnterBootloaderFromEsp32
+powershell -ExecutionPolicy Bypass -File .\scripts\flash-e79-at-modem-via-esp32.ps1 -Port COM19 -EnterBootloaderFromEsp32
 ```
 
-## Flash prin J-Link fallback
+Dupa verify, scriptul elibereaza BOOT si pulseaza RESET prin ESP32, astfel incat
+modulul revine automat in firmware-ul AT. Pentru debug se poate adauga
+`-NoResetAfterFlash`.
+
+Verificare AT rapida:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\flash-e79-at-modem.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\test-e79-at-sequence-via-esp32.ps1 -Port COM19 -Baud 1000000 -Commands AT+VERSION?
 ```
 
-## Test cu doua module
+Test riguros cu doua module:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\test-e79-at-rigorous-two-modules.ps1 -PortA COM19 -PortB COM22 -BridgeBaud 1000000
 ```
 
-Ultima validare hardware locala:
+In VSCode sunt disponibile aceleasi comenzi in `Terminal > Run Task`.
 
-```text
-Verified (match: 0x29bd3083)
-PASS: 150
-FAIL: 0
+## Module noi si backdoor
+
+- CC1352P are ROM serial bootloader in silicon; nu il flashuim noi.
+- Daca nu exista imagine valida in flash, ROM-ul poate intra in serial
+  bootloader, dar depinde de starea CCFG/factory state.
+- Dupa ce exista o imagine valida in flash, intrarea prin `BOOT` + `RESET`
+  cere bootloader backdoor activ in CCFG.
+- Firmware-ul `e79_at_modem` activeaza backdoor-ul pe `BOOT/DIO15`, active-low.
+- Un modul testat fara backdoor avea `BL_CONFIG = 0xC5FFFFFF`: ROM bootloader
+  enabled, backdoor disabled, pin BOOT neselectat.
+- Imaginea curenta seteaza `BL_CONFIG = 0xC5FE0FC5`: ROM bootloader enabled +
+  backdoor enabled pe pinul `0x0F` (`DIO15`), active-low.
+
+Pentru module noi/blank, merita incercat direct fluxul UART prin ESP32. Daca
+ROM-ul nu intra in SBL din cauza CCFG sau daca modulul este intr-o stare
+necunoscuta, J-Link ramane metoda de recuperare.
+
+## Fallback J-Link
+
+J-Link/cJTAG ramane disponibil pentru recovery:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\flash-e79-at-modem.ps1
 ```
 
-Validarea a inclus:
+Scripturile vechi pentru `rfDiagnostics`, `rfUARTBridge`, citire `BL_CONFIG` si
+reset/debug prin J-Link sunt pastrate pentru diagnostic.
 
-- primul `AT` dupa deschiderea portului raspunde direct `OK`, fara
-  `~CC1352P_BAUD`;
-- configurare frecventa/putere/rata/sync;
-- validare erori `#ERROR:`;
-- TX/RX text si hex intre doua module;
-- `RSSI`, `LASTPKT`, `SLEEP`, `WAKE`, `AT+RESET`;
-- stress test pentru baud-uri mari cu `scripts/stress-e79-at-high-baud-two-modules.ps1`.
+## Firmware E79 AT modem
 
-Detaliile comenzilor AT si plajele validate sunt in
-`firmware/e79_at_modem/README.md`.
+Firmware-ul foloseste TI Proprietary RF / 2-GFSK 50 kbps la 433 MHz si
+configureaza explicit pinii reali ai modulului E79:
+
+- UART catre ESP32 la `1000000 8N1`.
+- RF switch E79 pe DIO5/DIO6.
+- Frecventa implicita: `433920000` Hz.
+- Plaja acceptata: `431000000..500000000` Hz.
+- ROM serial bootloader backdoor activ pe `BOOT/DIO15`, active-low.
+
+Detalii despre comenzi, plaje validate si testul cu doua module sunt in
+`firmware\e79_at_modem\README.md`.
+
+## Directia urmatoare
+
+- persistenta config in flash/NVS;
+- mapare optionala `AT+CHAN` daca alegem pasul de canal;
+- address filtering daca protocolul final are nevoie;
+- integrare finala in proiectul ESP32 prin driver UART.

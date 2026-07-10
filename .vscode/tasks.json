@@ -189,7 +189,7 @@
                 "-PortB",
                 "${input:e79PortB}",
                 "-BridgeBaud",
-                "115200"
+                "1000000"
             ],
             "problemMatcher": []
         }
