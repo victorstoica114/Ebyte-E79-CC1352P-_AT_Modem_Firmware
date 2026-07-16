@@ -204,7 +204,7 @@ static void setDefaultConfig(void)
     cfg.pwrDbm = DEFAULT_PWR_DBM;
     cfg.syncWord = DEFAULT_SYNC_WORD;
     cfg.debug = false;
-    cfg.rxEnabled = false;
+    cfg.rxEnabled = true;
     cfg.sleeping = false;
 }
 
@@ -1222,6 +1222,10 @@ void *mainThread(void *arg0)
     }
 
     startUartRead();
+
+    if (cfg.rxEnabled && !rxStart()) {
+        sendError("RX_START_FAILED");
+    }
 
     while (1) {
         if (uartLineOverflow) {

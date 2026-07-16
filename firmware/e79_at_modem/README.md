@@ -21,8 +21,8 @@ propriu pe CC1352P si expune catre ESP32 un modem radio UART cu comenzi AT.
 - Frecventa implicita: `433920000` Hz.
 - Sync word implicit: `0x930B51DE`.
 - Configuratia este RAM-only in aceasta versiune; nu se scrie in flash/NVS.
-- `AT+DEFAULT` revine la RX off. Este varianta mai sigura pentru integrarea cu
-  ESP32: modulul nu incepe sa livreze pachete nesolicitate dupa reset.
+- La boot, `AT+DEFAULT` si `AT+RESET`, modemul revine cu RX pornit. TX este
+  on-demand: comuta pe transmitere doar cat timp trimite un pachet.
 
 ## Comenzi
 
