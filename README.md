@@ -136,11 +136,12 @@ reset/debug prin J-Link sunt pastrate pentru diagnostic.
 
 ## Firmware E79 AT modem
 
-Firmware-ul foloseste TI Proprietary RF / 2-GFSK 50 kbps la 433 MHz si
-configureaza explicit pinii reali ai modulului E79:
+Firmware-ul foloseste TI Proprietary RF la 433 MHz si configureaza explicit
+pinii reali ai modulului E79:
 
 - UART catre ESP32 la `1000000 8N1`.
 - RF switch E79 pe DIO5/DIO6.
+- Profile RF: `GFSK50` si `SLR5`.
 - Frecventa implicita: `433920000` Hz.
 - Plaja acceptata: `431000000..500000000` Hz.
 - ROM serial bootloader backdoor activ pe `BOOT/DIO15`, active-low.

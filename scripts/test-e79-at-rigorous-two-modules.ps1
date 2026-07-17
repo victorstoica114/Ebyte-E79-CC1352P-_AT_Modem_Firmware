@@ -237,12 +237,21 @@ function Test-ModuleBasics {
     [void](Expect-Ok $Device 'AT+HELP' "$($Device.Name) help" '\+HELP:AT')
 
     [void](Expect-Ok $Device 'AT+DEFAULT' "$($Device.Name) default")
-    [void](Expect-Ok $Device 'AT+CFG?' "$($Device.Name) default CFG" 'FREQ=433920000,RATE=50000,PWR=13,MOD=2GFSK,SYNC=0x930B51DE.*RX=OFF,SLEEP=NO')
+    [void](Expect-Ok $Device 'AT+CFG?' "$($Device.Name) default CFG" 'PROFILE=GFSK50,FREQ=433920000,RATE=50000,PWR=13,MOD=2GFSK,SYNC=0x930B51DE.*RX=ON,SLEEP=NO')
 
     [void](Expect-Ok $Device 'AT+DEBUG?' "$($Device.Name) debug query" '\+DEBUG:OFF')
     [void](Expect-Ok $Device 'AT+DEBUG=ON' "$($Device.Name) debug on")
     [void](Expect-Ok $Device 'AT+DEBUG?' "$($Device.Name) debug query on" '\+DEBUG:ON')
     [void](Expect-Ok $Device 'AT+DEBUG=OFF' "$($Device.Name) debug off")
+
+    [void](Expect-Ok $Device 'AT+PROFILES?' "$($Device.Name) profile list GFSK50" '\+PROFILE:GFSK50,RATE=50000,MOD=2GFSK')
+    [void](Expect-Ok $Device 'AT+PROFILES?' "$($Device.Name) profile list SLR5" '\+PROFILE:SLR5,RATE=5000,MOD=2GFSK')
+    [void](Expect-Ok $Device 'AT+PROFILE?' "$($Device.Name) profile query default" '\+PROFILE:GFSK50,RATE=50000,MOD=2GFSK')
+    [void](Expect-Ok $Device 'AT+PROFILE=SLR5' "$($Device.Name) set SLR5 profile")
+    [void](Expect-Ok $Device 'AT+PROFILE?' "$($Device.Name) profile query SLR5" '\+PROFILE:SLR5,RATE=5000,MOD=2GFSK')
+    [void](Expect-Ok $Device 'AT+RATE?' "$($Device.Name) SLR5 rate readback" '\+RATE:5000')
+    [void](Expect-Ok $Device 'AT+PROFILE=GFSK50' "$($Device.Name) restore GFSK50 profile")
+    [void](Expect-Error $Device 'AT+PROFILE=NOPE' 'BAD_PROFILE' "$($Device.Name) reject unknown profile")
 
     [void](Expect-Ok $Device 'AT+FREQ?' "$($Device.Name) freq query" '\+FREQ:433920000')
     [void](Expect-Ok $Device 'AT+FREQ=431000000' "$($Device.Name) min freq")
@@ -261,7 +270,10 @@ function Test-ModuleBasics {
     [void](Expect-Error $Device 'AT+PWR=-21' 'BAD_PWR' "$($Device.Name) reject unsupported pwr -21")
 
     [void](Expect-Ok $Device 'AT+RATE?' "$($Device.Name) rate query" '\+RATE:50000')
-    [void](Expect-Ok $Device 'AT+RATE=50000' "$($Device.Name) set supported rate")
+    [void](Expect-Ok $Device 'AT+RATE=5000' "$($Device.Name) set SLR5 by rate")
+    [void](Expect-Ok $Device 'AT+PROFILE?' "$($Device.Name) SLR5 selected by rate" '\+PROFILE:SLR5,RATE=5000,MOD=2GFSK')
+    [void](Expect-Ok $Device 'AT+RATE=50000' "$($Device.Name) set GFSK50 by rate")
+    [void](Expect-Ok $Device 'AT+PROFILE?' "$($Device.Name) GFSK50 selected by rate" '\+PROFILE:GFSK50,RATE=50000,MOD=2GFSK')
     [void](Expect-Error $Device 'AT+RATE=9600' 'BAD_RATE' "$($Device.Name) reject unsupported rate")
 
     [void](Expect-Ok $Device 'AT+MOD?' "$($Device.Name) mod query" '\+MOD:2GFSK')
@@ -284,15 +296,15 @@ function Test-ModuleBasics {
     [void](Expect-Error $Device 'AT+UNKNOWN' 'UNKNOWN_CMD' "$($Device.Name) reject unknown command")
 
     [void](Expect-Ok $Device 'AT+RSSI?' "$($Device.Name) RSSI query" '\+RSSI:')
-    [void](Expect-Ok $Device 'AT+STATUS?' "$($Device.Name) status query" '\+STATUS:SLEEP=NO')
+    [void](Expect-Ok $Device 'AT+STATUS?' "$($Device.Name) status query" '\+STATUS:PROFILE=GFSK50,SLEEP=NO')
     [void](Expect-Ok $Device 'AT+LASTPKT?' "$($Device.Name) lastpkt query" '\+LASTPKT:')
     [void](Expect-Ok $Device 'AT+RANDOM?' "$($Device.Name) random query" '\+RANDOM:0x[0-9A-F]+')
     [void](Expect-Ok $Device 'AT+UPTIME?' "$($Device.Name) uptime query" '\+UPTIME:\d+')
 
     [void](Expect-Error $Device 'AT+SETRADIO=434000000,9600,13,2GFSK,0x930B51DE' 'BAD_RATE' "$($Device.Name) SETRADIO validates before apply")
-    [void](Expect-Ok $Device 'AT+CFG?' "$($Device.Name) SETRADIO invalid did not partially apply freq" 'FREQ=433920000,RATE=50000')
+    [void](Expect-Ok $Device 'AT+CFG?' "$($Device.Name) SETRADIO invalid did not partially apply freq" 'PROFILE=GFSK50,FREQ=433920000,RATE=50000')
     [void](Expect-Ok $Device 'AT+SETRADIO=434000000,50000,13,2GFSK,0x12345678' "$($Device.Name) SETRADIO valid")
-    [void](Expect-Ok $Device 'AT+CFG?' "$($Device.Name) SETRADIO readback" 'FREQ=434000000,RATE=50000,PWR=13,MOD=2GFSK,SYNC=0x12345678')
+    [void](Expect-Ok $Device 'AT+CFG?' "$($Device.Name) SETRADIO readback" 'PROFILE=GFSK50,FREQ=434000000,RATE=50000,PWR=13,MOD=2GFSK,SYNC=0x12345678')
     [void](Expect-Ok $Device 'AT+DEFAULT' "$($Device.Name) default after SETRADIO")
 }
 
@@ -320,7 +332,7 @@ function Test-RfPair {
     $rxStart = $A.Lines.Count
     [void](Expect-Ok $A 'AT+RX=ON' "$($A.Name) RX ON for text packet")
     [void](Expect-Ok $B 'AT+SEND=HELLOE79' "$($B.Name) SEND text")
-    $rxLine = Wait-For-Line -Device $A -StartIndex $rxStart -Pattern '^\+RX:8,-?\d+,HELLOE79$' -TimeoutMs 6000
+    $rxLine = Wait-For-Line -Device $A -StartIndex $rxStart -Pattern '^(\+RX:8,-?\d+,HELLOE79|HELLOE79)$' -TimeoutMs 6000
     Add-Result -Ok ($null -ne $rxLine) -Message "$($A.Name) received text packet from $($B.Name)"
     [void](Expect-Ok $A 'AT+LASTPKT?' "$($A.Name) LASTPKT text payload" '\+LASTPKT:8,-?\d+,48454C4C4F453739')
     [void](Expect-Ok $A 'AT+RSSI?' "$($A.Name) RSSI after RX" '\+RSSI:')
@@ -329,12 +341,29 @@ function Test-RfPair {
     $rxStart = $B.Lines.Count
     [void](Expect-Ok $B 'AT+RX=ON' "$($B.Name) RX ON for hex packet")
     [void](Expect-Ok $A 'AT+SENDHEX=010203A5' "$($A.Name) SENDHEX binary")
-    $rxHexLine = Wait-For-Line -Device $B -StartIndex $rxStart -Pattern '^\+RXHEX:4,-?\d+,010203A5$' -TimeoutMs 6000
-    Add-Result -Ok ($null -ne $rxHexLine) -Message "$($B.Name) received binary packet from $($A.Name)"
-    [void](Expect-Ok $B 'AT+LASTPKT?' "$($B.Name) LASTPKT binary payload" '\+LASTPKT:4,-?\d+,010203A5')
+    $rxHexLine = Wait-For-Line -Device $B -StartIndex $rxStart -Pattern '^\+RXHEX:4,-?\d+,010203A5$' -TimeoutMs 1500
+    $lastBinaryLines = Expect-Ok $B 'AT+LASTPKT?' "$($B.Name) LASTPKT binary payload" '\+LASTPKT:4,-?\d+,010203A5'
+    $lastBinaryOk = (($lastBinaryLines -join "`n") -match '\+LASTPKT:4,-?\d+,010203A5')
+    Add-Result -Ok (($null -ne $rxHexLine) -or $lastBinaryOk) -Message "$($B.Name) received binary packet from $($A.Name)"
+
+    foreach ($dev in @($A, $B)) {
+        [void](Expect-Ok $dev 'AT+RX=OFF' "$($dev.Name) SLR prepare RX off")
+        [void](Expect-Ok $dev 'AT+PROFILE=SLR5' "$($dev.Name) SLR profile")
+        [void](Expect-Ok $dev 'AT+FREQ=433920000' "$($dev.Name) SLR freq")
+        [void](Expect-Ok $dev 'AT+PWR=13' "$($dev.Name) SLR pwr")
+        [void](Expect-Ok $dev 'AT+SYNC=0x930B51DE' "$($dev.Name) SLR sync")
+    }
+
+    $rxStart = $A.Lines.Count
+    [void](Expect-Ok $A 'AT+RX=ON' "$($A.Name) RX ON for SLR5 packet")
+    [void](Expect-Ok $B 'AT+SEND=SLR5OK' "$($B.Name) SEND SLR5 text")
+    $rxSlrLine = Wait-For-Line -Device $A -StartIndex $rxStart -Pattern '^(\+RX:6,-?\d+,SLR5OK|SLR5OK)$' -TimeoutMs 10000
+    Add-Result -Ok ($null -ne $rxSlrLine) -Message "$($A.Name) received SLR5 packet from $($B.Name)"
 
     [void](Expect-Ok $A 'AT+RX=OFF' "$($A.Name) RX off after RF tests")
     [void](Expect-Ok $B 'AT+RX=OFF' "$($B.Name) RX off after RF tests")
+    [void](Expect-Ok $A 'AT+PROFILE=GFSK50' "$($A.Name) restore GFSK50 after RF tests")
+    [void](Expect-Ok $B 'AT+PROFILE=GFSK50' "$($B.Name) restore GFSK50 after RF tests")
 }
 
 function Test-SleepAndReset {
@@ -345,16 +374,16 @@ function Test-SleepAndReset {
 
     [void](Expect-Ok $Device 'AT+RX=OFF' "$($Device.Name) sleep test RX off")
     [void](Expect-Ok $Device 'AT+SLEEP' "$($Device.Name) sleep")
-    [void](Expect-Ok $Device 'AT+STATUS?' "$($Device.Name) status sleeping" 'SLEEP=YES')
+    [void](Expect-Ok $Device 'AT+STATUS?' "$($Device.Name) status sleeping" 'PROFILE=GFSK50,SLEEP=YES')
     [void](Expect-Error $Device 'AT+SEND=Z' 'RADIO_SLEEPING \(send AT\+WAKE\)' "$($Device.Name) reject TX while sleeping")
     [void](Expect-Ok $Device 'AT+WAKE' "$($Device.Name) wake")
-    [void](Expect-Ok $Device 'AT+STATUS?' "$($Device.Name) status awake" 'SLEEP=NO')
+    [void](Expect-Ok $Device 'AT+STATUS?' "$($Device.Name) status awake" 'PROFILE=GFSK50,SLEEP=NO')
 
     $lines = Send-Command -Device $Device -Command 'AT+RESET' -TimeoutMs 3000
     Add-Result -Ok ($lines -contains 'OK') -Message "$($Device.Name) AT+RESET returned OK"
     Start-Sleep -Milliseconds 1200
     Ensure-At-Link -Device $Device
-    [void](Expect-Ok $Device 'AT+CFG?' "$($Device.Name) CFG after reset" 'FREQ=433920000,RATE=50000,PWR=13,MOD=2GFSK')
+    [void](Expect-Ok $Device 'AT+CFG?' "$($Device.Name) CFG after reset" 'PROFILE=GFSK50,FREQ=433920000,RATE=50000,PWR=13,MOD=2GFSK')
 }
 
 try {

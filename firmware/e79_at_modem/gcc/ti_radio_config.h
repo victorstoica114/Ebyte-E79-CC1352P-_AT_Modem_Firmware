@@ -75,4 +75,28 @@ extern rfc_CMD_PROP_RX_t RF_cmdPropRx;
 // RF Core API overrides
 extern uint32_t pOverrides[];
 
+//*********************************************************************************
+//  RF Setting:   SimpleLink Long Range, 5 kbps (20 ksps), 5 kHz Deviation, 2-GFSK, 34 kHz RX Bandwidth, FEC = 1:2, DSSS = 1:2
+//
+//  PHY:          slr5kbps2gfsk433mhz
+//  Setting file: setting_tc440.json
+//*********************************************************************************
+
+// PA table usage
+#define RF_PROP_TX_POWER_TABLE_SIZE_SL_LR TXPOWERTABLE_433_PA13_SIZE
+
+#define PROP_RF_txPowerTable_sl_lr txPowerTable_433_pa13
+
+// TI-RTOS RF Mode object
+extern RF_Mode RF_prop_sl_lr;
+
+// RF Core API commands
+extern rfc_CMD_PROP_RADIO_DIV_SETUP_PA_t RF_cmdPropRadioDivSetup_sl_lr;
+extern rfc_CMD_FS_t RF_cmdFs_sl_lr;
+extern rfc_CMD_PROP_TX_t RF_cmdPropTx_sl_lr;
+extern rfc_CMD_PROP_RX_t RF_cmdPropRx_sl_lr;
+
+// RF Core API overrides
+extern uint32_t pOverrides_sl_lr[];
+
 #endif // _TI_RADIO_CONFIG_H_

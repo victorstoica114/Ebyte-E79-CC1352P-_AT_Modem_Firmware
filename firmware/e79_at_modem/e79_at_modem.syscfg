@@ -95,15 +95,20 @@ const phyFilePath = "/ti/prop_rf/rf_config/" + boardName + "_rf_defaults.js";
 // Get the supported proprietary phys for this board as defined by Prop RF
 const supportedPropPhys = system.getScript(phyFilePath).defaultPropPhyList;
 
-// Get the supported proprietary phy for this board as defined by Prop RF
-const defaultPhy = system.getScript(phyFilePath).defaultPropPhyList[0];
+// Get the supported proprietary phys for this board as defined by Prop RF
+const defaultPhy = supportedPropPhys[0];
+const slr5Phy = supportedPropPhys[1];
 
 // Add an instance of the "Custom" RF Stack
 const customStack = scripting.addModule("/ti/devices/radioconfig/custom");
 
-// Add the default phy instance
+// Add the default 2-GFSK 50 kbps 433 MHz phy instance
 const phyInst = commonRf.addPropPhy(customStack, defaultPhy, true);
-phyInst.$name = "RF_Custom_Setting";
+phyInst.$name = "RF_GFSK50_Setting";
+
+// Add SimpleLink Long Range 5 kbps 433 MHz for range/sensitivity evaluation
+const slr5PhyInst = commonRf.addPropPhy(customStack, slr5Phy, false);
+slr5PhyInst.$name = "RF_SLR5_Setting";
 
 /* ======== RF Design ======== */
 var rfDesign = scripting.addModule("ti/devices/radioconfig/rfdesign");

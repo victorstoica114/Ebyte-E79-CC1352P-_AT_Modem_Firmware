@@ -16,13 +16,19 @@ propriu pe CC1352P si expune catre ESP32 un modem radio UART cu comenzi AT.
 
 ## RF
 
-- Baza TI: Proprietary RF / 2-GFSK 50 kbps 433 MHz, generata din
-  `CC1352P_4_LAUNCHXL`.
+- Baza TI: Proprietary RF 433 MHz, generata din `CC1352P_4_LAUNCHXL`.
+- Profile RF disponibile:
+  - `GFSK50`: 2-GFSK, 50 kbps, 25 kHz deviation, 78 kHz RX bandwidth.
+  - `SLR5`: SimpleLink Long Range, 5 kbps, 5 kHz deviation, 34 kHz RX
+    bandwidth, FEC 1:2, DSSS 1:2.
+- Profil implicit: `GFSK50`.
 - Frecventa implicita: `433920000` Hz.
 - Sync word implicit: `0x930B51DE`.
 - Configuratia este RAM-only in aceasta versiune; nu se scrie in flash/NVS.
 - La boot, `AT+DEFAULT` si `AT+RESET`, modemul revine cu RX pornit. TX este
   on-demand: comuta pe transmitere doar cat timp trimite un pachet.
+- Profilele de 100/250 kbps din SDK pentru `CC1352P_4_LAUNCHXL` sunt 2.4 GHz,
+  nu 433 MHz, deci nu sunt expuse pentru E79-400 in firmware-ul acesta.
 
 ## Comenzi
 
@@ -36,6 +42,9 @@ propriu pe CC1352P si expune catre ESP32 un modem radio UART cu comenzi AT.
 - `AT+DEBUG?`
 - `AT+DEBUG=ON`
 - `AT+DEBUG=OFF`
+- `AT+PROFILE?`
+- `AT+PROFILE=<name>`
+- `AT+PROFILES?`
 - `AT+FREQ?`
 - `AT+FREQ=<Hz>`
 - `AT+PWR?`
@@ -66,7 +75,8 @@ propriu pe CC1352P si expune catre ESP32 un modem radio UART cu comenzi AT.
 ## Parametri validati
 
 - `FREQ`: `431000000..500000000` Hz.
-- `RATE`: doar `50000` bps in V1.
+- `PROFILE`: `GFSK50` sau `SLR5`.
+- `RATE`: `50000` bps selecteaza `GFSK50`; `5000` bps selecteaza `SLR5`.
 - `MOD`: doar `2GFSK` in V1.
 - `PWR`: `-20,-15,-10,-5,0,1,2,3,4,5,6,7,8,9,10,11,12,13` dBm. Valoarea de
   14 dBm din tabelul TI nu este expusa in V1 deoarece cere configurare speciala
@@ -75,6 +85,17 @@ propriu pe CC1352P si expune catre ESP32 un modem radio UART cu comenzi AT.
 - `ADDR`: N/A in V1; PHY-ul generat ruleaza fara address check.
 - `CHAN`: N/A in V1; se foloseste frecventa explicita prin `AT+FREQ`.
 - Payload TX: maxim 64 octeti.
+
+Exemple utile pentru evaluare:
+
+```text
+AT+PROFILES?
+AT+PROFILE=GFSK50
+AT+PROFILE=SLR5
+AT+RATE=50000
+AT+RATE=5000
+AT+CFG?
+```
 
 Toate erorile incep cu `#ERROR:` si se termina cu CRLF. Raspunsul simplu de
 succes este `OK\r\n`.
