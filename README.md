@@ -5,6 +5,18 @@ CC1352P din modulul Ebyte E79-400DM2005S. E79 nu este tratat ca radio SPI
 simplu: CC1352P ruleaza firmware propriu si expune catre ESP32 un modem radio
 UART cu comenzi AT.
 
+## Rolul acestui repo
+
+Acesta este repo-ul public/slim pentru sursa firmware-ului si scripturile de
+lucru. Nu contine toolchain-ul TI, SDK-ul SimpleLink, fisierele `.obj/.out` sau
+alte artefacte locale de build. Binarele gata de scris pe modul sunt publicate
+in GitHub Releases.
+
+Repo-ul pereche `Ebyte-E79-CC1352P-_AT_Modem_Firmware-Full` pastreaza acelasi
+cod sursa plus mediul complet folosit local: SDK, toolchain, SysConfig, J-Link
+si artefacte de build. Il tinem ca snapshot complet/recovery, iar acest repo
+ramane varianta curata pentru citit, modificat si distribuit codul.
+
 Fluxul normal validat acum este:
 
 1. ESP32-C3 ruleaza bridge-ul USB CDC -> UART CC1352P.
@@ -15,7 +27,7 @@ Fluxul normal validat acum este:
 J-Link ramane util ca plasa de siguranta pentru recovery, citire registre sau
 module cu CCFG necunoscut, dar nu mai este necesar in fluxul normal de update.
 
-## Ce este instalat local
+## Dependinte locale pentru build
 
 - TI SimpleLink Low Power F2 SDK: `sdk/simplelink-lowpower-f2-sdk`
 - TI Proprietary RF examples: `sdk/simplelink-prop_rf-examples`
@@ -35,7 +47,7 @@ Au fost compilate cu succes:
 
 Firmware-ul util curent este in `firmware/e79_at_modem`.
 
-## Flash validat
+## Scriere firmware validata
 
 Validarea hardware curenta:
 
@@ -43,10 +55,10 @@ Validarea hardware curenta:
 - ESP32 GPIO10 -> E79 `RESET_N`, active-low.
 - ESP32 GPIO20/GPIO21 -> UART CC1352P la `1000000` baud.
 - TI ROM SBL raspunde la sync cu `ACK: 00 CC` pe ambele module testate.
-- Flash prin ESP32 bridge: mass erase + write + verify OK pe `COM19` si `COM22`.
+- Scriere prin ESP32 bridge: mass erase + write + verify OK pe `COM19` si `COM22`.
 - Imagine scrisa: `firmware\e79_at_modem\gcc\e79_at_modem.bin`, 360448 bytes.
-- Verify CRC pe ambele module: `0x29bd3083`.
-- Test AT/RF complet dupa flash: `PASS: 150`, `FAIL: 0`.
+- Verify CRC pe ambele module: `0x88e3915e`.
+- Test AT/RF complet dupa flash: `PASS: 187`, `FAIL: 0`.
 
 Baud-ul USB CDC PC -> ESP32 nu este viteza fizica importanta. Legatura critica
 este UART-ul intern ESP32-C3 -> CC1352P, iar bridge-ul porneste implicit la
@@ -63,7 +75,7 @@ Build firmware E79:
 powershell -ExecutionPolicy Bypass -File .\scripts\build-e79-at-modem.ps1
 ```
 
-Build si flash ESP32 bridge:
+Build si scriere firmware ESP32 bridge:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build-esp32-cc1352-bridge.ps1
@@ -82,7 +94,7 @@ Succesul asteptat:
 ACK: 00 CC
 ```
 
-Flash CC1352P prin ESP32 bridge, fara butoane si fara J-Link:
+Scriere firmware CC1352P prin ESP32 bridge, fara butoane si fara J-Link:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\flash-e79-at-modem-via-esp32.ps1 -Port COM19 -EnterBootloaderFromEsp32
@@ -106,9 +118,22 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-e79-at-rigorous-two-modu
 
 In VSCode sunt disponibile aceleasi comenzi in `Terminal > Run Task`.
 
+## GitHub Releases
+
+Release-urile contin binarele utile pentru versiunea curenta a modemului E79.
+Pentru `e79-at-modem-v0.1.0` publicam:
+
+- `e79_at_modem-v0.1.0.bin`: imaginea principala pentru scriere prin ESP32
+  bridge / TI ROM SBL.
+- `e79_at_modem-v0.1.0.hex`: imagine Intel HEX pentru tool-uri compatibile
+  J-Link/UniFlash.
+- `e79_at_modem-v0.1.0.out`: imagine cu simboluri, utila pentru debug.
+- `e79_at_modem-v0.1.0.map`: link map pentru inspectie/debug.
+- `SHA256SUMS.txt`: hash-uri pentru verificarea asset-urilor.
+
 ## Module noi si backdoor
 
-- CC1352P are ROM serial bootloader in silicon; nu il flashuim noi.
+- CC1352P are ROM serial bootloader in silicon; nu il scriem noi.
 - Daca nu exista imagine valida in flash, ROM-ul poate intra in serial
   bootloader, dar depinde de starea CCFG/factory state.
 - Dupa ce exista o imagine valida in flash, intrarea prin `BOOT` + `RESET`
