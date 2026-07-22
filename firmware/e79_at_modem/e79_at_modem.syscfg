@@ -110,6 +110,71 @@ phyInst.$name = "RF_GFSK50_Setting";
 const slr5PhyInst = commonRf.addPropPhy(customStack, slr5Phy, false);
 slr5PhyInst.$name = "RF_SLR5_Setting";
 
+function add433Profile(name, phyType, suffix) {
+    const profile = {
+        args: {
+            $name: name,
+            freqBand: "433",
+            phyType433: phyType,
+            packetLengthConfig: "Variable",
+            highPA: false,
+            txPower433: "12.5",
+            codeExportConfig: {
+                symGenMethod: "Custom",
+                rfMode: "RF_prop_" + suffix,
+                txPower: "PROP_RF_txPowerTable_" + suffix,
+                txPowerSize: "RF_PROP_TX_POWER_TABLE_SIZE_" + suffix.toUpperCase(),
+                overrides: "pOverrides_" + suffix,
+                cmdList_prop: ["cmdFs", "cmdPropRadioDivSetupPa", "cmdPropTx", "cmdPropRx"],
+                cmdFs: "RF_cmdFs_" + suffix,
+                cmdPropRadioDivSetupPa: "RF_cmdPropRadioDivSetup_" + suffix,
+                cmdPropTx: "RF_cmdPropTx_" + suffix,
+                cmdPropRx: "RF_cmdPropRx_" + suffix,
+                useMulti: true,
+                paExport: "combined"
+            }
+        }
+    };
+
+    return commonRf.addPropPhy(customStack, profile, false);
+}
+
+add433Profile("RF_SLR2K5_Setting", "slr2500bps2gfsk433mhz", "slr_2k5");
+add433Profile("RF_GFSK4K8_Setting", "2gfsk48kpbs429mhz", "gfsk_4k8");
+add433Profile("RF_OOK4K8_Setting", "ook48kbps433mhz", "ook_4k8");
+add433Profile("RF_GFSK200_Setting", "2gfsk200kbps433mhz", "gfsk_200");
+
+function add433Ieee154gProfile() {
+    const profile = {
+        args: {
+            $name: "RF_IEEE154G50_Setting",
+            freqBand: "433",
+            phyType433: "2gfsk50kbps154g433mhz",
+            packetLengthConfig: "Variable",
+            highPA: false,
+            txPower433: "12.5",
+            codeExportConfig: {
+                symGenMethod: "Custom",
+                rfMode: "RF_prop_ieee154g_50",
+                txPower: "PROP_RF_txPowerTable_ieee154g_50",
+                txPowerSize: "RF_PROP_TX_POWER_TABLE_SIZE_IEEE154G_50",
+                overrides: "pOverrides_ieee154g_50",
+                cmdList_prop: ["cmdFs", "cmdPropRadioDivSetupPa", "cmdPropTxAdv", "cmdPropRxAdv"],
+                cmdFs: "RF_cmdFs_ieee154g_50",
+                cmdPropRadioDivSetupPa: "RF_cmdPropRadioDivSetup_ieee154g_50",
+                cmdPropTxAdv: "RF_cmdPropTxAdv_ieee154g_50",
+                cmdPropRxAdv: "RF_cmdPropRxAdv_ieee154g_50",
+                useMulti: true,
+                paExport: "combined"
+            }
+        }
+    };
+
+    return commonRf.addPropPhy(customStack, profile, false);
+}
+
+add433Ieee154gProfile();
+
 /* ======== RF Design ======== */
 var rfDesign = scripting.addModule("ti/devices/radioconfig/rfdesign");
 const rfDesignSettings = system.getScript("/ti/common/lprf_rf_design_settings.js").rfDesignSettings;

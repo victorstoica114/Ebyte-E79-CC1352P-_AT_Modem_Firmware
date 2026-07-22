@@ -99,4 +99,124 @@ extern rfc_CMD_PROP_RX_t RF_cmdPropRx_sl_lr;
 // RF Core API overrides
 extern uint32_t pOverrides_sl_lr[];
 
+//*********************************************************************************
+//  RF Setting:   SimpleLink Long Range, 2.5 kbps (20 ksps), 5 kHz Deviation, 2-GFSK, 34 kHz RX Bandwidth, FEC = 1:2, DSSS = 1:4
+//
+//  PHY:          slr2500bps2gfsk433mhz
+//  Setting file: setting_tc441.json
+//*********************************************************************************
+
+// PA table usage
+#define RF_PROP_TX_POWER_TABLE_SIZE_SLR_2K5 TXPOWERTABLE_433_PA13_SIZE
+
+#define PROP_RF_txPowerTable_slr_2k5 txPowerTable_433_pa13
+
+// TI-RTOS RF Mode object
+extern RF_Mode RF_prop_slr_2k5;
+
+// RF Core API commands
+extern rfc_CMD_PROP_RADIO_DIV_SETUP_PA_t RF_cmdPropRadioDivSetup_slr_2k5;
+extern rfc_CMD_FS_t RF_cmdFs_slr_2k5;
+extern rfc_CMD_PROP_TX_t RF_cmdPropTx_slr_2k5;
+extern rfc_CMD_PROP_RX_t RF_cmdPropRx_slr_2k5;
+
+// RF Core API overrides
+extern uint32_t pOverrides_slr_2k5[];
+
+//*********************************************************************************
+//  RF Setting:   Narrowband, 4.8 kbps, 2 kHz Deviation, 2-GFSK, 10.1 kHz RX Bandwidth
+//
+//  PHY:          2gfsk48kpbs429mhz
+//  Setting file: setting_tc596.json
+//*********************************************************************************
+
+// PA table usage
+#define RF_PROP_TX_POWER_TABLE_SIZE_GFSK_4K8 TXPOWERTABLE_433_PA13_SIZE
+
+#define PROP_RF_txPowerTable_gfsk_4k8 txPowerTable_433_pa13
+
+// TI-RTOS RF Mode object
+extern RF_Mode RF_prop_gfsk_4k8;
+
+// RF Core API commands
+extern rfc_CMD_PROP_RADIO_DIV_SETUP_PA_t RF_cmdPropRadioDivSetup_gfsk_4k8;
+extern rfc_CMD_FS_t RF_cmdFs_gfsk_4k8;
+extern rfc_CMD_PROP_TX_t RF_cmdPropTx_gfsk_4k8;
+extern rfc_CMD_PROP_RX_t RF_cmdPropRx_gfsk_4k8;
+
+// RF Core API overrides
+extern uint32_t pOverrides_gfsk_4k8[];
+
+//*********************************************************************************
+//  RF Setting:   4.8 kbps, OOK, 34.1 kHz RX Bandwidth
+//
+//  PHY:          ook48kbps433mhz
+//  Setting file: setting_tc599.json
+//*********************************************************************************
+
+// PA table usage
+#define RF_PROP_TX_POWER_TABLE_SIZE_OOK_4K8 TXPOWERTABLE_433_PA13_SIZE
+
+#define PROP_RF_txPowerTable_ook_4k8 txPowerTable_433_pa13
+
+// TI-RTOS RF Mode object
+extern RF_Mode RF_prop_ook_4k8;
+
+// RF Core API commands
+extern rfc_CMD_PROP_RADIO_DIV_SETUP_PA_t RF_cmdPropRadioDivSetup_ook_4k8;
+extern rfc_CMD_FS_t RF_cmdFs_ook_4k8;
+extern rfc_CMD_PROP_TX_t RF_cmdPropTx_ook_4k8;
+extern rfc_CMD_PROP_RX_t RF_cmdPropRx_ook_4k8;
+
+// RF Core API overrides
+extern uint32_t pOverrides_ook_4k8[];
+
+//*********************************************************************************
+//  RF Setting:   200 kbps, 50 kHz Deviation, 2-GFSK, 273 kHz RX Bandwidth
+//
+//  PHY:          2gfsk200kbps433mhz
+//  Setting file: setting_tc148.json
+//*********************************************************************************
+
+// PA table usage
+#define RF_PROP_TX_POWER_TABLE_SIZE_GFSK_200 TXPOWERTABLE_433_PA13_SIZE
+
+#define PROP_RF_txPowerTable_gfsk_200 txPowerTable_433_pa13
+
+// TI-RTOS RF Mode object
+extern RF_Mode RF_prop_gfsk_200;
+
+// RF Core API commands
+extern rfc_CMD_PROP_RADIO_DIV_SETUP_PA_t RF_cmdPropRadioDivSetup_gfsk_200;
+extern rfc_CMD_FS_t RF_cmdFs_gfsk_200;
+extern rfc_CMD_PROP_TX_t RF_cmdPropTx_gfsk_200;
+extern rfc_CMD_PROP_RX_t RF_cmdPropRx_gfsk_200;
+
+// RF Core API overrides
+extern uint32_t pOverrides_gfsk_200[];
+
+//*********************************************************************************
+//  RF Setting:   IEEE 802.15.4, 50 kbps, 25kHz Deviation, 2-GFSK, 78 kHz RX Bandwidth
+//
+//  PHY:          2gfsk50kbps154g433mhz
+//  Setting file: setting_tc112_154g.json
+//*********************************************************************************
+
+// PA table usage
+#define RF_PROP_TX_POWER_TABLE_SIZE_IEEE154G_50 TXPOWERTABLE_433_PA13_SIZE
+
+#define PROP_RF_txPowerTable_ieee154g_50 txPowerTable_433_pa13
+
+// TI-RTOS RF Mode object
+extern RF_Mode RF_prop_ieee154g_50;
+
+// RF Core API commands
+extern rfc_CMD_PROP_RADIO_DIV_SETUP_PA_t RF_cmdPropRadioDivSetup_ieee154g_50;
+extern rfc_CMD_FS_t RF_cmdFs_ieee154g_50;
+extern rfc_CMD_PROP_TX_ADV_t RF_cmdPropTxAdv_ieee154g_50;
+extern rfc_CMD_PROP_RX_ADV_t RF_cmdPropRxAdv_ieee154g_50;
+
+// RF Core API overrides
+extern uint32_t pOverrides_ieee154g_50[];
+
 #endif // _TI_RADIO_CONFIG_H_

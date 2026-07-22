@@ -29,7 +29,7 @@
 #include <ti_radio_config.h>
 
 #define FW_NAME                 "E79_AT_MODEM"
-#define FW_VERSION              "0.1.0"
+#define FW_VERSION              "0.3.0"
 #define FW_SDK                  "SimpleLink-LPF2-SDK 8.33.00.16"
 
 #ifndef E79_UART_BAUD
@@ -42,8 +42,9 @@
 #define UART_PRINTF_LEN         224U
 
 #define MAX_RF_PAYLOAD          64U
+#define TX_PACKET_BUFFER_LEN    (MAX_RF_PAYLOAD + 2U)
 #define NUM_DATA_ENTRIES        2U
-#define RX_APPENDED_BYTES       3U
+#define RX_APPENDED_BYTES       11U
 
 #define FREQ_MIN_HZ             431000000UL
 #define FREQ_MAX_HZ             500000000UL
@@ -52,13 +53,24 @@
 #define DEFAULT_PWR_DBM         13
 #define DEFAULT_SYNC_WORD       0x930B51DEUL
 
+#define IEEE154G_SYNC_WORD      0x0055904EUL
+#define IEEE154G_PHR_BYTES      2U
+#define IEEE154G_FCS16_BYTES    2U
+#define IEEE154G_FCS32_BYTES    4U
+#define IEEE154G_PHR_WHITEN_CRC16 0x18U
+
 #define E79_RF_SW_DIO5          5U
 #define E79_RF_SW_DIO6          6U
 
 typedef enum
 {
     RADIO_PROFILE_GFSK50 = 0,
+    RADIO_PROFILE_GFSK4K8,
+    RADIO_PROFILE_GFSK200,
+    RADIO_PROFILE_SLR2K5,
     RADIO_PROFILE_SLR5,
+    RADIO_PROFILE_OOK4K8,
+    RADIO_PROFILE_IEEE154G50,
     RADIO_PROFILE_COUNT
 } RadioProfileId;
 
@@ -85,6 +97,8 @@ typedef struct
     rfc_CMD_FS_t *fs;
     rfc_CMD_PROP_TX_t *tx;
     rfc_CMD_PROP_RX_t *rx;
+    rfc_CMD_PROP_TX_ADV_t *txAdv;
+    rfc_CMD_PROP_RX_ADV_t *rxAdv;
 } RadioProfile;
 
 typedef struct
@@ -109,7 +123,48 @@ static RadioProfile radioProfiles[RADIO_PROFILE_COUNT] = {
         &RF_cmdPropRadioDivSetup,
         &RF_cmdFs,
         &RF_cmdPropTx,
-        &RF_cmdPropRx
+        &RF_cmdPropRx,
+        NULL,
+        NULL
+    },
+    {
+        "GFSK4K8",
+        "2GFSK",
+        "4K8_2GFSK_2KDEV_10K1BW_NARROWBAND",
+        4800UL,
+        &RF_prop_gfsk_4k8,
+        &RF_cmdPropRadioDivSetup_gfsk_4k8,
+        &RF_cmdFs_gfsk_4k8,
+        &RF_cmdPropTx_gfsk_4k8,
+        &RF_cmdPropRx_gfsk_4k8,
+        NULL,
+        NULL
+    },
+    {
+        "GFSK200",
+        "2GFSK",
+        "200K_2GFSK_50KDEV_273KBW",
+        200000UL,
+        &RF_prop_gfsk_200,
+        &RF_cmdPropRadioDivSetup_gfsk_200,
+        &RF_cmdFs_gfsk_200,
+        &RF_cmdPropTx_gfsk_200,
+        &RF_cmdPropRx_gfsk_200,
+        NULL,
+        NULL
+    },
+    {
+        "SLR2K5",
+        "2GFSK",
+        "2K5_SIMPLELINK_LONG_RANGE_FEC_DSSS",
+        2500UL,
+        &RF_prop_slr_2k5,
+        &RF_cmdPropRadioDivSetup_slr_2k5,
+        &RF_cmdFs_slr_2k5,
+        &RF_cmdPropTx_slr_2k5,
+        &RF_cmdPropRx_slr_2k5,
+        NULL,
+        NULL
     },
     {
         "SLR5",
@@ -120,7 +175,35 @@ static RadioProfile radioProfiles[RADIO_PROFILE_COUNT] = {
         &RF_cmdPropRadioDivSetup_sl_lr,
         &RF_cmdFs_sl_lr,
         &RF_cmdPropTx_sl_lr,
-        &RF_cmdPropRx_sl_lr
+        &RF_cmdPropRx_sl_lr,
+        NULL,
+        NULL
+    },
+    {
+        "OOK4K8",
+        "OOK",
+        "4K8_OOK_34K1BW",
+        4800UL,
+        &RF_prop_ook_4k8,
+        &RF_cmdPropRadioDivSetup_ook_4k8,
+        &RF_cmdFs_ook_4k8,
+        &RF_cmdPropTx_ook_4k8,
+        &RF_cmdPropRx_ook_4k8,
+        NULL,
+        NULL
+    },
+    {
+        "IEEE154G50",
+        "MRFSK",
+        "IEEE_802_15_4G_MRFSK_50K_CRC16_WHITENING",
+        50000UL,
+        &RF_prop_ieee154g_50,
+        &RF_cmdPropRadioDivSetup_ieee154g_50,
+        &RF_cmdFs_ieee154g_50,
+        NULL,
+        NULL,
+        &RF_cmdPropTxAdv_ieee154g_50,
+        &RF_cmdPropRxAdv_ieee154g_50
     }
 };
 
@@ -135,7 +218,7 @@ static volatile bool uartLineReady;
 static volatile bool uartLineOverflow;
 static bool ignoreNextLf;
 static bool uartDroppingLine;
-static bool uartStartupSynced;
+static bool uartInputEstablished;
 static bool awakePowerConstraintsHeld;
 
 static RF_Object rfObject;
@@ -144,7 +227,7 @@ static RF_CmdHandle rxCmdHandle = RF_ALLOC_ERROR;
 static bool rxCommandActive;
 
 static dataQueue_t dataQueue;
-static uint8_t txPacket[MAX_RF_PAYLOAD];
+static uint8_t txPacket[TX_PACKET_BUFFER_LEN];
 
 static volatile bool rxPacketReady;
 static PacketInfo rxPacketPending;
@@ -307,13 +390,74 @@ static bool findProfileByName(const char *text, RadioProfileId *profileId)
     return false;
 }
 
-static bool findProfileByRate(uint32_t rateBps, RadioProfileId *profileId)
+static bool findProfileByRateAndMod(uint32_t rateBps, const char *modName,
+                                    RadioProfileId preferredProfile,
+                                    RadioProfileId *profileId)
+{
+    uint8_t i;
+    RadioProfileId firstMatch = RADIO_PROFILE_COUNT;
+
+    if ((uint8_t)preferredProfile < (uint8_t)RADIO_PROFILE_COUNT &&
+        radioProfiles[preferredProfile].rateBps == rateBps &&
+        strcmp(radioProfiles[preferredProfile].modName, modName) == 0) {
+        *profileId = preferredProfile;
+        return true;
+    }
+
+    for (i = 0; i < (uint8_t)RADIO_PROFILE_COUNT; i++) {
+        if (radioProfiles[i].rateBps == rateBps &&
+            strcmp(radioProfiles[i].modName, modName) == 0) {
+            if (firstMatch != RADIO_PROFILE_COUNT) {
+                return false;
+            }
+            firstMatch = (RadioProfileId)i;
+        }
+    }
+
+    if (firstMatch == RADIO_PROFILE_COUNT) {
+        return false;
+    }
+
+    *profileId = firstMatch;
+    return true;
+}
+
+static bool findProfileByRate(uint32_t rateBps, RadioProfileId preferredProfile,
+                              RadioProfileId *profileId)
+{
+    const RadioProfile *preferred;
+    uint8_t i;
+    RadioProfileId firstMatch = RADIO_PROFILE_COUNT;
+
+    if (getRadioProfile(preferredProfile, &preferred) &&
+        findProfileByRateAndMod(rateBps, preferred->modName,
+                                preferredProfile, profileId)) {
+        return true;
+    }
+
+    for (i = 0; i < (uint8_t)RADIO_PROFILE_COUNT; i++) {
+        if (radioProfiles[i].rateBps == rateBps) {
+            if (firstMatch != RADIO_PROFILE_COUNT) {
+                return false;
+            }
+            firstMatch = (RadioProfileId)i;
+        }
+    }
+
+    if (firstMatch == RADIO_PROFILE_COUNT) {
+        return false;
+    }
+
+    *profileId = firstMatch;
+    return true;
+}
+
+static bool hasProfileWithRate(uint32_t rateBps)
 {
     uint8_t i;
 
     for (i = 0; i < (uint8_t)RADIO_PROFILE_COUNT; i++) {
         if (radioProfiles[i].rateBps == rateBps) {
-            *profileId = (RadioProfileId)i;
             return true;
         }
     }
@@ -321,16 +465,29 @@ static bool findProfileByRate(uint32_t rateBps, RadioProfileId *profileId)
     return false;
 }
 
-static void setDefaultConfig(void)
+static bool hasProfileWithMod(const char *modName)
 {
-    cfg.freqHz = DEFAULT_FREQ_HZ;
-    cfg.rateBps = DEFAULT_RATE_BPS;
-    cfg.pwrDbm = DEFAULT_PWR_DBM;
-    cfg.syncWord = DEFAULT_SYNC_WORD;
-    cfg.profile = RADIO_PROFILE_GFSK50;
-    cfg.debug = false;
-    cfg.rxEnabled = true;
-    cfg.sleeping = false;
+    uint8_t i;
+
+    for (i = 0; i < (uint8_t)RADIO_PROFILE_COUNT; i++) {
+        if (strcmp(radioProfiles[i].modName, modName) == 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static void setDefaultConfig(ModemConfig *target)
+{
+    target->freqHz = DEFAULT_FREQ_HZ;
+    target->rateBps = DEFAULT_RATE_BPS;
+    target->pwrDbm = DEFAULT_PWR_DBM;
+    target->syncWord = DEFAULT_SYNC_WORD;
+    target->profile = RADIO_PROFILE_GFSK50;
+    target->debug = false;
+    target->rxEnabled = true;
+    target->sleeping = false;
 }
 
 static bool isSupportedPower(int32_t dbm)
@@ -362,6 +519,11 @@ static bool validateConfig(const ModemConfig *candidate, const char **error)
 
     if (candidate->rateBps != profile->rateBps) {
         *error = "BAD_RATE";
+        return false;
+    }
+
+    if (profile->txAdv != NULL && candidate->syncWord > 0x00FFFFFFUL) {
+        *error = "BAD_SYNC";
         return false;
     }
 
@@ -423,19 +585,40 @@ static void configureRadioCommands(void)
     configureFrequency(cfg.freqHz);
     configurePower(cfg.pwrDbm);
 
-    profile->tx->pPkt = txPacket;
-    profile->tx->startTrigger.triggerType = TRIG_NOW;
-    profile->tx->syncWord = cfg.syncWord;
+    if (profile->tx != NULL && profile->rx != NULL) {
+        profile->tx->pPkt = txPacket;
+        profile->tx->startTrigger.triggerType = TRIG_NOW;
+        profile->tx->syncWord = cfg.syncWord;
 
-    profile->rx->pQueue = &dataQueue;
-    profile->rx->rxConf.bAutoFlushIgnored = 1;
-    profile->rx->rxConf.bAutoFlushCrcErr = 1;
-    profile->rx->rxConf.bAppendRssi = 1;
-    profile->rx->maxPktLen = MAX_RF_PAYLOAD;
-    profile->rx->pktConf.bRepeatOk = 1;
-    profile->rx->pktConf.bRepeatNok = 1;
-    profile->rx->pktConf.bChkAddress = 0;
-    profile->rx->syncWord = cfg.syncWord;
+        profile->rx->pQueue = &dataQueue;
+        profile->rx->rxConf.bAutoFlushIgnored = 1;
+        profile->rx->rxConf.bAutoFlushCrcErr = 1;
+        profile->rx->rxConf.bAppendRssi = 1;
+        profile->rx->maxPktLen = MAX_RF_PAYLOAD;
+        profile->rx->pktConf.bRepeatOk = 1;
+        profile->rx->pktConf.bRepeatNok = 1;
+        profile->rx->pktConf.bChkAddress = 0;
+        profile->rx->syncWord = cfg.syncWord;
+    }
+    else if (profile->txAdv != NULL && profile->rxAdv != NULL) {
+        profile->txAdv->pPkt = txPacket;
+        profile->txAdv->startTrigger.triggerType = TRIG_NOW;
+        profile->txAdv->syncWord = cfg.syncWord & 0x00FFFFFFUL;
+
+        profile->rxAdv->pQueue = &dataQueue;
+        profile->rxAdv->rxConf.bAutoFlushIgnored = 1;
+        profile->rxAdv->rxConf.bAutoFlushCrcErr = 1;
+        profile->rxAdv->rxConf.bIncludeHdr = 1;
+        profile->rxAdv->rxConf.bIncludeCrc = 0;
+        profile->rxAdv->rxConf.bAppendRssi = 1;
+        profile->rxAdv->rxConf.bAppendTimestamp = 0;
+        profile->rxAdv->rxConf.bAppendStatus = 1;
+        profile->rxAdv->maxPktLen = MAX_RF_PAYLOAD + IEEE154G_FCS32_BYTES;
+        profile->rxAdv->pktConf.bRepeatOk = 1;
+        profile->rxAdv->pktConf.bRepeatNok = 1;
+        profile->rxAdv->pktConf.filterOp = 0;
+        profile->rxAdv->syncWord0 = cfg.syncWord & 0x00FFFFFFUL;
+    }
 }
 
 static void rfSwitchOff(void)
@@ -507,6 +690,7 @@ static void rxStop(void)
 static bool rxStart(void)
 {
     const RadioProfile *profile = activeRadioProfile();
+    RF_Op *rxOp;
 
     if (cfg.sleeping) {
         return false;
@@ -520,8 +704,10 @@ static bool rxStart(void)
         return true;
     }
 
+    rxOp = (profile->rx != NULL) ? (RF_Op *)profile->rx
+                                  : (RF_Op *)profile->rxAdv;
     rfSwitchRx();
-    rxCmdHandle = RF_postCmd(rfHandle, (RF_Op *)profile->rx,
+    rxCmdHandle = RF_postCmd(rfHandle, rxOp,
                              RF_PriorityNormal, rfRxCallback,
                              RF_EventRxEntryDone);
     rxCommandActive = (rxCmdHandle != RF_ALLOC_ERROR);
@@ -547,7 +733,7 @@ static void resetModemState(void)
 {
     holdAwakePowerConstraints();
     radioClose();
-    setDefaultConfig();
+    setDefaultConfig(&cfg);
     configureRadioCommands();
 
     rxPacketReady = false;
@@ -760,16 +946,6 @@ static bool startsWith(const char *text, const char *prefix)
     return strncmp(text, prefix, strlen(prefix)) == 0;
 }
 
-static bool isAtPrefixChar(uint8_t c)
-{
-    return c == 'A' || c == 'a';
-}
-
-static bool isAtSecondChar(uint8_t c)
-{
-    return c == 'T' || c == 't';
-}
-
 static void appendHexByte(char *out, size_t outLen, size_t *pos, uint8_t value)
 {
     static const char hex[] = "0123456789ABCDEF";
@@ -813,6 +989,12 @@ static bool isPrintablePayload(const uint8_t *data, uint8_t len)
 
 static void emitRxPacket(const PacketInfo *packet)
 {
+    if (!cfg.debug) {
+        UART2_write(uartHandle, packet->data, packet->len, NULL);
+        uartWriteRaw("\r\n");
+        return;
+    }
+
     if (isPrintablePayload(packet->data, packet->len)) {
         char text[MAX_RF_PAYLOAD + 1U];
 
@@ -893,23 +1075,33 @@ static uint32_t uptimeSeconds(void)
     return (uint32_t)(us / 1000000ULL);
 }
 
+static uint8_t reverseBits(uint8_t value)
+{
+    value = (uint8_t)(((value & 0xF0U) >> 4) | ((value & 0x0FU) << 4));
+    value = (uint8_t)(((value & 0xCCU) >> 2) | ((value & 0x33U) << 2));
+    value = (uint8_t)(((value & 0xAAU) >> 1) | ((value & 0x55U) << 1));
+    return value;
+}
+
 static void printHelp(void)
 {
     uartWriteRaw("+HELP:AT,AT?,AT+HELP,AT+CFG?,AT+DEFAULT,AT+RESET,AT+VERSION?\r\n");
     uartWriteRaw("+HELP:AT+DEBUG?,AT+DEBUG=ON,AT+DEBUG=OFF\r\n");
     uartWriteRaw("+HELP:AT+PROFILE?,AT+PROFILE=<name>,AT+PROFILES?\r\n");
-    uartWriteRaw("+HELP:AT+FREQ?,AT+FREQ=<Hz>,AT+PWR?,AT+PWR=<dBm>,AT+RATE?,AT+RATE=<bps>,AT+MOD?,AT+MOD=2GFSK\r\n");
+    uartWriteRaw("+HELP:AT+FREQ?,AT+FREQ=<Hz>,AT+PWR?,AT+PWR=<dBm>,AT+RATE?,AT+RATE=<bps>,AT+MOD?,AT+MOD=<name>\r\n");
     uartWriteRaw("+HELP:AT+SYNC?,AT+SYNC=<hex>,AT+ADDR?,AT+CHAN?\r\n");
     uartWriteRaw("+HELP:AT+RX=ON,AT+RX=OFF,AT+SEND=<text>,AT+SENDHEX=<hex>,AT+SLEEP,AT+WAKE\r\n");
     uartWriteRaw("+HELP:AT+RSSI?,AT+STATUS?,AT+LASTPKT?,AT+RANDOM?,AT+UPTIME?,AT+SETRADIO=FREQ,RATE,PWR,MOD,SYNC\r\n");
     sendOk();
 }
 
-static bool sendPacket(const uint8_t *data, uint8_t len)
+static bool sendPacket(const uint8_t *data, uint8_t len, bool acknowledge)
 {
     const RadioProfile *profile;
     bool restartRx = rxCommandActive;
     RF_EventMask event;
+    RF_Op *txOp;
+    uint8_t i;
 
     if (cfg.sleeping) {
         sendSleepingError();
@@ -931,12 +1123,25 @@ static bool sendPacket(const uint8_t *data, uint8_t len)
     }
 
     profile = activeRadioProfile();
-    memcpy(txPacket, data, len);
-    profile->tx->pktLen = len;
-    profile->tx->syncWord = cfg.syncWord;
+    if (profile->tx != NULL) {
+        memcpy(txPacket, data, len);
+        profile->tx->pktLen = len;
+        profile->tx->syncWord = cfg.syncWord;
+        txOp = (RF_Op *)profile->tx;
+    }
+    else {
+        txPacket[0] = (uint8_t)(len + IEEE154G_FCS16_BYTES);
+        txPacket[1] = IEEE154G_PHR_WHITEN_CRC16;
+        for (i = 0; i < len; i++) {
+            txPacket[i + IEEE154G_PHR_BYTES] = reverseBits(data[i]);
+        }
+        profile->txAdv->pktLen = len + IEEE154G_PHR_BYTES;
+        profile->txAdv->syncWord = cfg.syncWord & 0x00FFFFFFUL;
+        txOp = (RF_Op *)profile->txAdv;
+    }
 
     rfSwitchTx();
-    event = RF_runCmd(rfHandle, (RF_Op *)profile->tx, RF_PriorityNormal, NULL, 0);
+    event = RF_runCmd(rfHandle, txOp, RF_PriorityNormal, NULL, 0);
     rfSwitchOff();
 
     if (restartRx || cfg.rxEnabled) {
@@ -952,7 +1157,9 @@ static bool sendPacket(const uint8_t *data, uint8_t len)
     }
 
     txCount++;
-    sendOk();
+    if (acknowledge) {
+        sendOk();
+    }
     return true;
 }
 
@@ -989,14 +1196,18 @@ static void processSetRadio(char *args)
     }
 
     toUpperCopy(modUpper, parts[3], sizeof(modUpper));
-    if (strcmp(modUpper, "2GFSK") != 0) {
+    if (!hasProfileWithRate(rate)) {
+        sendError("BAD_RATE");
+        return;
+    }
+    if (!hasProfileWithMod(modUpper)) {
         sendError("BAD_MOD");
         return;
     }
 
     next.freqHz = freq;
-    if (!findProfileByRate(rate, &profileId)) {
-        sendError("BAD_RATE");
+    if (!findProfileByRateAndMod(rate, modUpper, cfg.profile, &profileId)) {
+        sendError("BAD_PROFILE");
         return;
     }
     next.profile = profileId;
@@ -1045,8 +1256,7 @@ static void processCommand(char *line)
     else if (strcmp(upper, "AT+DEFAULT") == 0) {
         ModemConfig next;
 
-        setDefaultConfig();
-        next = cfg;
+        setDefaultConfig(&next);
         if (applyConfig(&next)) {
             sendOk();
         }
@@ -1080,6 +1290,11 @@ static void processCommand(char *line)
         if (!findProfileByName(cmd + strlen("AT+PROFILE="), &profileId)) {
             sendError("BAD_PROFILE");
             return;
+        }
+        if (profileId != cfg.profile) {
+            next.syncWord = (profileId == RADIO_PROFILE_IEEE154G50)
+                                ? IEEE154G_SYNC_WORD
+                                : DEFAULT_SYNC_WORD;
         }
         next.profile = profileId;
         next.rateBps = radioProfiles[profileId].rateBps;
@@ -1138,7 +1353,7 @@ static void processCommand(char *line)
             sendError("BAD_RATE");
             return;
         }
-        if (!findProfileByRate(value, &profileId)) {
+        if (!findProfileByRate(value, cfg.profile, &profileId)) {
             sendError("BAD_RATE");
             return;
         }
@@ -1152,11 +1367,26 @@ static void processCommand(char *line)
         uartPrintf("+MOD:%s\r\n", activeRadioProfile()->modName);
         sendOk();
     }
-    else if (strcmp(upper, "AT+MOD=2GFSK") == 0) {
-        sendOk();
-    }
     else if (startsWith(upper, "AT+MOD=")) {
-        sendError("BAD_MOD");
+        RadioProfileId profileId;
+        ModemConfig next = cfg;
+        char modUpper[16];
+
+        toUpperCopy(modUpper, cmd + strlen("AT+MOD="), sizeof(modUpper));
+        if (!findProfileByRateAndMod(cfg.rateBps, modUpper,
+                                     cfg.profile, &profileId)) {
+            sendError("BAD_MOD");
+            return;
+        }
+        if (profileId != cfg.profile) {
+            next.syncWord = (profileId == RADIO_PROFILE_IEEE154G50)
+                                ? IEEE154G_SYNC_WORD
+                                : DEFAULT_SYNC_WORD;
+        }
+        next.profile = profileId;
+        if (applyConfig(&next)) {
+            sendOk();
+        }
     }
     else if (strcmp(upper, "AT+SYNC?") == 0) {
         uartPrintf("+SYNC:0x%08lX\r\n", (unsigned long)cfg.syncWord);
@@ -1215,7 +1445,7 @@ static void processCommand(char *line)
             sendError("BAD_LEN");
             return;
         }
-        sendPacket((const uint8_t *)payload, (uint8_t)len);
+        sendPacket((const uint8_t *)payload, (uint8_t)len, true);
     }
     else if (startsWith(upper, "AT+SENDHEX=")) {
         uint8_t data[MAX_RF_PAYLOAD];
@@ -1225,7 +1455,7 @@ static void processCommand(char *line)
             sendError("BAD_HEX");
             return;
         }
-        sendPacket(data, len);
+        sendPacket(data, len, true);
     }
     else if (strcmp(upper, "AT+SLEEP") == 0) {
         cfg.sleeping = true;
@@ -1293,25 +1523,70 @@ static void processCommand(char *line)
     else if (startsWith(upper, "AT+SETRADIO=")) {
         processSetRadio(cmd + strlen("AT+SETRADIO="));
     }
-    else {
+    else if (strcmp(upper, "AT?") == 0 || startsWith(upper, "AT+")) {
         sendError("UNKNOWN_CMD");
+    }
+    else {
+        size_t len = strlen(cmd);
+
+        if (len > MAX_RF_PAYLOAD) {
+            sendError("BAD_LEN");
+            return;
+        }
+        sendPacket((const uint8_t *)cmd, (uint8_t)len, false);
     }
 }
 
 static void rfRxCallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
 {
+    const RadioProfile *profile = activeRadioProfile();
+
     (void)h;
     (void)ch;
 
     if ((e & RF_EventRxEntryDone) != 0U) {
         rfc_dataEntryGeneral_t *entry = RFQueue_getDataEntry();
         uint8_t *raw = (uint8_t *)&entry->data;
-        uint8_t len = raw[0];
+        uint8_t len;
+        uint8_t *payload;
+        uint8_t rssiOffset;
+
+        if (profile->rx != NULL) {
+            len = raw[0];
+            payload = &raw[1];
+            rssiOffset = (uint8_t)(1U + len);
+        }
+        else {
+            uint16_t frameLength = (uint16_t)raw[0] |
+                                   (uint16_t)((raw[1] & 0x07U) << 8);
+            uint8_t fcsLength = ((raw[1] & 0x08U) != 0U)
+                                    ? IEEE154G_FCS16_BYTES
+                                    : IEEE154G_FCS32_BYTES;
+
+            if (frameLength < fcsLength ||
+                (frameLength - fcsLength) > MAX_RF_PAYLOAD) {
+                RFQueue_nextEntry();
+                return;
+            }
+
+            len = (uint8_t)(frameLength - fcsLength);
+            payload = &raw[IEEE154G_PHR_BYTES];
+            rssiOffset = (uint8_t)(IEEE154G_PHR_BYTES + len);
+        }
 
         if (len <= MAX_RF_PAYLOAD && !rxPacketReady) {
+            uint8_t i;
+
             rxPacketPending.len = len;
-            memcpy(rxPacketPending.data, &raw[1], len);
-            rxPacketPending.rssi = (int8_t)raw[1U + len];
+            if (profile->rx != NULL) {
+                memcpy(rxPacketPending.data, payload, len);
+            }
+            else {
+                for (i = 0; i < len; i++) {
+                    rxPacketPending.data[i] = reverseBits(payload[i]);
+                }
+            }
+            rxPacketPending.rssi = (int8_t)raw[rssiOffset];
             rxPacketReady = true;
         }
 
@@ -1347,22 +1622,15 @@ static void uartRxCallback(UART2_Handle handle, void *buffer, size_t count,
 
         if (uartDroppingLine) {
             uartDroppingLine = false;
-            uartLineOverflow = true;
+            if (uartInputEstablished) {
+                uartLineOverflow = true;
+            }
         }
         else if (uartInputLen > 0U && !uartLineReady) {
-            if (!uartStartupSynced &&
-                (uartInputLen < 2U ||
-                 !isAtPrefixChar((uint8_t)uartInput[0]) ||
-                 !isAtSecondChar((uint8_t)uartInput[1]))) {
-                uartInputLen = 0;
-                startUartRead();
-                return;
-            }
-
             memcpy(uartLine, uartInput, uartInputLen);
             uartLine[uartInputLen] = '\0';
             uartLineReady = true;
-            uartStartupSynced = true;
+            uartInputEstablished = true;
         }
         uartInputLen = 0;
         startUartRead();
@@ -1376,20 +1644,11 @@ static void uartRxCallback(UART2_Handle handle, void *buffer, size_t count,
         return;
     }
 
-    if (!uartStartupSynced) {
-        if (uartInputLen == 0U) {
-            if (!isAtPrefixChar(c)) {
-                startUartRead();
-                return;
-            }
-        }
-        else if (uartInputLen == 1U && !isAtSecondChar(c)) {
-            uartInputLen = 0;
-            if (!isAtPrefixChar(c)) {
-                startUartRead();
-                return;
-            }
-        }
+    if (c < 0x20U || c > 0x7EU) {
+        uartInputLen = 0;
+        uartDroppingLine = true;
+        startUartRead();
+        return;
     }
 
     if (uartInputLen + 1U < sizeof(uartInput)) {
@@ -1409,7 +1668,7 @@ void *mainThread(void *arg0)
 
     (void)arg0;
 
-    setDefaultConfig();
+    setDefaultConfig(&cfg);
     holdAwakePowerConstraints();
     rfSwitchInit();
 
@@ -1436,6 +1695,7 @@ void *mainThread(void *arg0)
         }
     }
 
+    UART2_flushRx(uartHandle);
     startUartRead();
 
     if (cfg.rxEnabled && !rxStart()) {

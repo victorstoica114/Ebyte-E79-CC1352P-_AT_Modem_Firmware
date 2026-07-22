@@ -140,6 +140,24 @@ function Send-Command {
     return @($Device.Lines | Select-Object -Skip $start)
 }
 
+function Send-Transparent {
+    param(
+        [object]$Device,
+        [string]$Payload
+    )
+
+    $start = $Device.Lines.Count
+    Write-Host ("[{0}] >>> [transparent] {1}" -f $Device.Name, $Payload)
+    $Device.Serial.Write("$Payload`r`n")
+    try {
+        $Device.Serial.BaseStream.Flush()
+    }
+    catch {
+    }
+    Drain-All -DurationMs 350
+    return @($Device.Lines | Select-Object -Skip $start)
+}
+
 function Expect-Ok {
     param(
         [object]$Device,
@@ -245,11 +263,20 @@ function Test-ModuleBasics {
     [void](Expect-Ok $Device 'AT+DEBUG=OFF' "$($Device.Name) debug off")
 
     [void](Expect-Ok $Device 'AT+PROFILES?' "$($Device.Name) profile list GFSK50" '\+PROFILE:GFSK50,RATE=50000,MOD=2GFSK')
+    [void](Expect-Ok $Device 'AT+PROFILES?' "$($Device.Name) profile list GFSK4K8" '\+PROFILE:GFSK4K8,RATE=4800,MOD=2GFSK')
+    [void](Expect-Ok $Device 'AT+PROFILES?' "$($Device.Name) profile list GFSK200" '\+PROFILE:GFSK200,RATE=200000,MOD=2GFSK')
+    [void](Expect-Ok $Device 'AT+PROFILES?' "$($Device.Name) profile list SLR2K5" '\+PROFILE:SLR2K5,RATE=2500,MOD=2GFSK')
     [void](Expect-Ok $Device 'AT+PROFILES?' "$($Device.Name) profile list SLR5" '\+PROFILE:SLR5,RATE=5000,MOD=2GFSK')
+    [void](Expect-Ok $Device 'AT+PROFILES?' "$($Device.Name) profile list OOK4K8" '\+PROFILE:OOK4K8,RATE=4800,MOD=OOK')
+    [void](Expect-Ok $Device 'AT+PROFILES?' "$($Device.Name) profile list IEEE154G50" '\+PROFILE:IEEE154G50,RATE=50000,MOD=MRFSK')
     [void](Expect-Ok $Device 'AT+PROFILE?' "$($Device.Name) profile query default" '\+PROFILE:GFSK50,RATE=50000,MOD=2GFSK')
     [void](Expect-Ok $Device 'AT+PROFILE=SLR5' "$($Device.Name) set SLR5 profile")
     [void](Expect-Ok $Device 'AT+PROFILE?' "$($Device.Name) profile query SLR5" '\+PROFILE:SLR5,RATE=5000,MOD=2GFSK')
     [void](Expect-Ok $Device 'AT+RATE?' "$($Device.Name) SLR5 rate readback" '\+RATE:5000')
+    [void](Expect-Ok $Device 'AT+PROFILE=IEEE154G50' "$($Device.Name) set IEEE 802.15.4g profile")
+    [void](Expect-Ok $Device 'AT+PROFILE?' "$($Device.Name) profile query IEEE 802.15.4g" '\+PROFILE:IEEE154G50,RATE=50000,MOD=MRFSK')
+    [void](Expect-Ok $Device 'AT+SYNC?' "$($Device.Name) IEEE 802.15.4g standard SFD" '\+SYNC:0x0055904E')
+    [void](Expect-Error $Device 'AT+SYNC=0x12345678' 'BAD_SYNC' "$($Device.Name) reject 32-bit sync in IEEE 802.15.4g mode")
     [void](Expect-Ok $Device 'AT+PROFILE=GFSK50' "$($Device.Name) restore GFSK50 profile")
     [void](Expect-Error $Device 'AT+PROFILE=NOPE' 'BAD_PROFILE' "$($Device.Name) reject unknown profile")
 
@@ -274,10 +301,23 @@ function Test-ModuleBasics {
     [void](Expect-Ok $Device 'AT+PROFILE?' "$($Device.Name) SLR5 selected by rate" '\+PROFILE:SLR5,RATE=5000,MOD=2GFSK')
     [void](Expect-Ok $Device 'AT+RATE=50000' "$($Device.Name) set GFSK50 by rate")
     [void](Expect-Ok $Device 'AT+PROFILE?' "$($Device.Name) GFSK50 selected by rate" '\+PROFILE:GFSK50,RATE=50000,MOD=2GFSK')
+    [void](Expect-Ok $Device 'AT+RATE=4800' "$($Device.Name) set GFSK4K8 by rate")
+    [void](Expect-Ok $Device 'AT+PROFILE?' "$($Device.Name) GFSK4K8 selected by rate" '\+PROFILE:GFSK4K8,RATE=4800,MOD=2GFSK')
+    [void](Expect-Ok $Device 'AT+MOD=OOK' "$($Device.Name) switch 4.8 kbps modulation to OOK")
+    [void](Expect-Ok $Device 'AT+PROFILE?' "$($Device.Name) OOK4K8 selected by modulation" '\+PROFILE:OOK4K8,RATE=4800,MOD=OOK')
+    [void](Expect-Ok $Device 'AT+MOD=2GFSK' "$($Device.Name) switch 4.8 kbps modulation to 2GFSK")
+    [void](Expect-Ok $Device 'AT+RATE=2500' "$($Device.Name) set SLR2K5 by rate")
+    [void](Expect-Ok $Device 'AT+PROFILE?' "$($Device.Name) SLR2K5 selected by rate" '\+PROFILE:SLR2K5,RATE=2500,MOD=2GFSK')
+    [void](Expect-Ok $Device 'AT+RATE=200000' "$($Device.Name) set GFSK200 by rate")
+    [void](Expect-Ok $Device 'AT+PROFILE?' "$($Device.Name) GFSK200 selected by rate" '\+PROFILE:GFSK200,RATE=200000,MOD=2GFSK')
+    [void](Expect-Ok $Device 'AT+PROFILE=GFSK50' "$($Device.Name) restore GFSK50 after rate tests")
     [void](Expect-Error $Device 'AT+RATE=9600' 'BAD_RATE' "$($Device.Name) reject unsupported rate")
 
     [void](Expect-Ok $Device 'AT+MOD?' "$($Device.Name) mod query" '\+MOD:2GFSK')
     [void](Expect-Ok $Device 'AT+MOD=2GFSK' "$($Device.Name) set 2GFSK")
+    [void](Expect-Ok $Device 'AT+MOD=MRFSK' "$($Device.Name) select IEEE 802.15.4g by modulation")
+    [void](Expect-Ok $Device 'AT+PROFILE?' "$($Device.Name) IEEE 802.15.4g selected by modulation" '\+PROFILE:IEEE154G50,RATE=50000,MOD=MRFSK')
+    [void](Expect-Ok $Device 'AT+MOD=2GFSK' "$($Device.Name) return from MRFSK to proprietary 2GFSK")
     [void](Expect-Error $Device 'AT+MOD=LORA' 'BAD_MOD' "$($Device.Name) reject fake LoRa mod")
 
     [void](Expect-Ok $Device 'AT+SYNC?' "$($Device.Name) sync query" '\+SYNC:0x930B51DE')
@@ -305,6 +345,8 @@ function Test-ModuleBasics {
     [void](Expect-Ok $Device 'AT+CFG?' "$($Device.Name) SETRADIO invalid did not partially apply freq" 'PROFILE=GFSK50,FREQ=433920000,RATE=50000')
     [void](Expect-Ok $Device 'AT+SETRADIO=434000000,50000,13,2GFSK,0x12345678' "$($Device.Name) SETRADIO valid")
     [void](Expect-Ok $Device 'AT+CFG?' "$($Device.Name) SETRADIO readback" 'PROFILE=GFSK50,FREQ=434000000,RATE=50000,PWR=13,MOD=2GFSK,SYNC=0x12345678')
+    [void](Expect-Ok $Device 'AT+SETRADIO=433920000,50000,13,MRFSK,0x0055904E' "$($Device.Name) SETRADIO IEEE 802.15.4g valid")
+    [void](Expect-Ok $Device 'AT+CFG?' "$($Device.Name) SETRADIO IEEE 802.15.4g readback" 'PROFILE=IEEE154G50,FREQ=433920000,RATE=50000,PWR=13,MOD=MRFSK,SYNC=0x0055904E')
     [void](Expect-Ok $Device 'AT+DEFAULT' "$($Device.Name) default after SETRADIO")
 }
 
@@ -337,6 +379,13 @@ function Test-RfPair {
     [void](Expect-Ok $A 'AT+LASTPKT?' "$($A.Name) LASTPKT text payload" '\+LASTPKT:8,-?\d+,48454C4C4F453739')
     [void](Expect-Ok $A 'AT+RSSI?' "$($A.Name) RSSI after RX" '\+RSSI:')
 
+    $transparentPayload = 'RAW-E79-LINE'
+    $rxStart = $A.Lines.Count
+    $senderLines = Send-Transparent -Device $B -Payload $transparentPayload
+    $rxTransparent = Wait-For-Line -Device $A -StartIndex $rxStart -Pattern '^RAW-E79-LINE$' -TimeoutMs 6000
+    Add-Result -Ok ($null -ne $rxTransparent) -Message "$($A.Name) received transparent non-AT line from $($B.Name)"
+    Add-Result -Ok (-not ($senderLines | Where-Object { $_ -eq 'OK' -or $_.StartsWith('#ERROR:') })) -Message "$($B.Name) transparent TX produced no AT response"
+
     [void](Expect-Ok $A 'AT+RX=OFF' "$($A.Name) RX OFF before reverse")
     $rxStart = $B.Lines.Count
     [void](Expect-Ok $B 'AT+RX=ON' "$($B.Name) RX ON for hex packet")
@@ -346,19 +395,46 @@ function Test-RfPair {
     $lastBinaryOk = (($lastBinaryLines -join "`n") -match '\+LASTPKT:4,-?\d+,010203A5')
     Add-Result -Ok (($null -ne $rxHexLine) -or $lastBinaryOk) -Message "$($B.Name) received binary packet from $($A.Name)"
 
-    foreach ($dev in @($A, $B)) {
-        [void](Expect-Ok $dev 'AT+RX=OFF' "$($dev.Name) SLR prepare RX off")
-        [void](Expect-Ok $dev 'AT+PROFILE=SLR5' "$($dev.Name) SLR profile")
-        [void](Expect-Ok $dev 'AT+FREQ=433920000' "$($dev.Name) SLR freq")
-        [void](Expect-Ok $dev 'AT+PWR=13' "$($dev.Name) SLR pwr")
-        [void](Expect-Ok $dev 'AT+SYNC=0x930B51DE' "$($dev.Name) SLR sync")
-    }
+    $profileTests = @(
+        @{ Name = 'GFSK4K8'; TimeoutMs = 10000 },
+        @{ Name = 'GFSK50'; TimeoutMs = 6000 },
+        @{ Name = 'GFSK200'; TimeoutMs = 6000 },
+        @{ Name = 'SLR2K5'; TimeoutMs = 12000 },
+        @{ Name = 'SLR5'; TimeoutMs = 10000 },
+        @{ Name = 'OOK4K8'; TimeoutMs = 10000 },
+        @{ Name = 'IEEE154G50'; TimeoutMs = 10000 }
+    )
 
-    $rxStart = $A.Lines.Count
-    [void](Expect-Ok $A 'AT+RX=ON' "$($A.Name) RX ON for SLR5 packet")
-    [void](Expect-Ok $B 'AT+SEND=SLR5OK' "$($B.Name) SEND SLR5 text")
-    $rxSlrLine = Wait-For-Line -Device $A -StartIndex $rxStart -Pattern '^(\+RX:6,-?\d+,SLR5OK|SLR5OK)$' -TimeoutMs 10000
-    Add-Result -Ok ($null -ne $rxSlrLine) -Message "$($A.Name) received SLR5 packet from $($B.Name)"
+    foreach ($profileTest in $profileTests) {
+        $profile = $profileTest.Name
+        foreach ($dev in @($A, $B)) {
+            [void](Expect-Ok $dev 'AT+RX=OFF' "$($dev.Name) $profile prepare RX off")
+            [void](Expect-Ok $dev "AT+PROFILE=$profile" "$($dev.Name) select $profile")
+            [void](Expect-Ok $dev 'AT+FREQ=433920000' "$($dev.Name) $profile freq")
+            [void](Expect-Ok $dev 'AT+PWR=13' "$($dev.Name) $profile pwr")
+            $syncWord = if ($profile -eq 'IEEE154G50') { '0x0055904E' } else { '0x930B51DE' }
+            [void](Expect-Ok $dev "AT+SYNC=$syncWord" "$($dev.Name) $profile sync")
+        }
+
+        $payloadA = "${profile}A"
+        $rxStart = $A.Lines.Count
+        [void](Expect-Ok $A 'AT+RX=ON' "$($A.Name) RX ON for $profile A")
+        [void](Expect-Ok $B "AT+SEND=$payloadA" "$($B.Name) SEND $profile A")
+        $payloadPatternA = [regex]::Escape($payloadA)
+        $patternA = "^(\+RX:$($payloadA.Length),-?\d+,$payloadPatternA|$payloadPatternA)$"
+        $rxLineA = Wait-For-Line -Device $A -StartIndex $rxStart -Pattern $patternA -TimeoutMs $profileTest.TimeoutMs
+        Add-Result -Ok ($null -ne $rxLineA) -Message "$($A.Name) received $profile packet from $($B.Name)"
+
+        [void](Expect-Ok $A 'AT+RX=OFF' "$($A.Name) RX OFF before $profile reverse")
+        $payloadB = "${profile}B"
+        $rxStart = $B.Lines.Count
+        [void](Expect-Ok $B 'AT+RX=ON' "$($B.Name) RX ON for $profile B")
+        [void](Expect-Ok $A "AT+SEND=$payloadB" "$($A.Name) SEND $profile B")
+        $payloadPatternB = [regex]::Escape($payloadB)
+        $patternB = "^(\+RX:$($payloadB.Length),-?\d+,$payloadPatternB|$payloadPatternB)$"
+        $rxLineB = Wait-For-Line -Device $B -StartIndex $rxStart -Pattern $patternB -TimeoutMs $profileTest.TimeoutMs
+        Add-Result -Ok ($null -ne $rxLineB) -Message "$($B.Name) received $profile packet from $($A.Name)"
+    }
 
     [void](Expect-Ok $A 'AT+RX=OFF' "$($A.Name) RX off after RF tests")
     [void](Expect-Ok $B 'AT+RX=OFF' "$($B.Name) RX off after RF tests")
