@@ -3,7 +3,17 @@
 Firmware for the Ebyte E79-400DM2005S / TI CC1352P. The CC1352P runs this
 firmware directly and exposes a UART radio modem to the ESP32.
 
-Current firmware version: `0.3.0`.
+Current firmware version: `0.3.2`, with selectable TX/RX hardware markers
+on DIO17. Both CH340 and ESP32 variants compile. On 2026-10-01, TX COM12
+and RX COM13 were flashed with the same 0.3.2 CH340 image and the full
+image was verified through J-Link/cJTAG on both modules. UART readback
+confirmed version 0.3.2 and the selected TX/RX marker roles. The operator
+confirmed that the debugger target cable was removed. Independent local
+TX and RX pulses have now been observed; the earlier RX-LOW observation
+belongs to the TX-only 0.3.1 image. The five-transfer 32 B/GFSK200/+13 dBm
+pilot passed with all packets received. Independent ADC integration
+reproduced all ten total energies exactly, without baseline subtraction.
+The 315-transfer paired 8/32/64-byte campaign completed on 2026-10-01: 315/315 accepted pairs across all seven PHYs and three power settings. Its independent audit verified all 630 TX/RX captures.
 
 ## Hardware
 
@@ -17,6 +27,79 @@ Current firmware version: `0.3.0`.
 - RESET: `RESET_N`, active low, driven by ESP32 GPIO10 on the current hardware.
 - E79 RF switch: TX = `DIO5=1,DIO6=0`, RX = `DIO5=0,DIO6=1`, standby = both
   low.
+- Measurement marker: **DIO17**, also the module's JTAG TDI signal (module
+  pad 19 in the bench schematic). A four-wire JTAG probe must not drive TDI
+  while this image uses the marker.
+- The validated CH340 fixture has UART **TX=DIO12, RX=DIO13**, opposite to
+  the ESP32 default above. Select the correct build pinout explicitly.
+
+## Independent TX and RX markers for two PPK2 instruments
+
+Use the same 0.3.2 image on both modules. Select the marker role at runtime:
+
+```text
+AT+MARKER=TX
+AT+MARKER?
++MARKER:ROLE=TX,DIO=17,SOURCE=RAT_GPO0,ACTIVE=HIGH
+OK
+```
+
+On the receiver select `AT+MARKER=RX`; the query returns
+`+MARKER:ROLE=RX,DIO=17,SOURCE=RAT_GPO1,ACTIVE=HIGH` followed by `OK`.
+`AT+CFG?` also includes `MARKER=TX` or `RX`. The role defaults to TX on boot,
+`AT+RESET`, and `AT+DEFAULT`; sleep/wake and profile changes preserve it.
+`AT+TXMARKER?` remains compatible in TX role and returns `MARKER_NOT_TX`
+in RX role. Queries describe configuration, not physical pulse validation.
+
+Connect **TX DIO17 to TX PPK D0**, and **RX DIO17 to RX PPK D0**. Do not join
+the two radio outputs. Connect logic-port VCC to the 3.3 V logic reference
+and grounds to common signal ground. Each DUT keeps its own measured supply
+path through its PPK2; do not bridge the PPK VOUT rails. Remove the debugger
+target cable before measuring.
+
+TX uses `RAT_GPO0`, high over the RF-core transmission interval. RX uses
+`RAT_GPO1`, high from **sync detection to packet completion or abort**.
+The RX window excludes preamble, sync acquisition, prior listening and
+processing after the falling edge. It measures the whole supplied module
+within that interval, not isolated internal RF energy. TX/RX pulse widths
+are expected to differ. The independent PPK clocks cannot establish precise
+TX-to-RX propagation delay from these separate markers.
+
+Both signals route via RFC_GPO2 to DIO17. `RF_Params.pPowerCb` reapplies
+the selected mapping after each RF setup, preserving GPO0/1/3. Init and
+powerdown set the pin LOW. RX adds TI override `0x008F88B3` to a bounded,
+persistent copy of the generated PHY overrides; the original pointer is
+restored after RF_close. Generated files are not patched. The modern
+CC13x2 CPE patches support repeating RX; `bRepeatOk/bRepeatNok=1` are retained.
+
+See [TI signal-routing documentation](https://software-dl.ti.com/simplelink/esd/simplelink_cc13x2_26x2_sdk/3.40.00.02/exports/docs/proprietary-rf/proprietary-rf-users-guide/rf-core/signal-routing.html).
+The repeat limitation in its note applies to older CC1310/CC1350/CC2640R2F
+devices; repeated operation on this fixture still requires bench validation.
+
+First validate multiple GFSK200 packets in the same continuous RX command,
+then sleep/wake and role/profile changes. A missing, truncated or ambiguous
+pulse fails measurement acceptance. Packet delivery and payload are checked
+separately, since RX pulses may also accompany rejected packets. All seven
+PHYs compile; marker behavior must be validated per PHY before campaign use.
+
+The previous common-TX mode remains available: fanout TX DIO17 to both
+PPK D0 inputs, with RX DIO17 disconnected. It measures both modules during
+the TX interval and does not independently delimit reception. Its wiring
+and interpretation must not be mixed with the independent-marker mode.
+
+Build from the workspace root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build-e79-at-modem.ps1 -UartPinout CH340
+powershell -ExecutionPolicy Bypass -File .\scripts\build-e79-at-modem.ps1 -UartPinout ESP32
+```
+
+The build checks generated UART pin assignments and saves versioned images,
+ELF/map, generated pin definitions and SHA-256 metadata in
+`firmware/e79_at_modem/artifacts/0.3.2/ch340_1000000` or `esp32_1000000`.
+Choose the matching image explicitly when flashing; the generic `gcc` output
+contains whichever variant was built last. The CH340 SysConfig overlay is
+derived anew from the canonical configuration on each build.
 
 ## RF profiles
 
@@ -80,6 +163,10 @@ AT+CFG?
 AT+DEFAULT
 AT+RESET
 AT+VERSION?
+AT+MARKER?
+AT+MARKER=TX
+AT+MARKER=RX
+AT+TXMARKER?
 AT+DEBUG?
 AT+DEBUG=ON
 AT+DEBUG=OFF

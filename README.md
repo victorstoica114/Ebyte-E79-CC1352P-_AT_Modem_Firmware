@@ -4,7 +4,29 @@ Source repository for the firmware that runs on the TI CC1352P inside the
 Ebyte E79-400DM2005S module. The E79 is not used as a simple SPI transceiver:
 the CC1352P runs the modem firmware and exposes a UART interface to the ESP32.
 
-Current modem firmware version: `0.3.0`.
+Current modem firmware version: `0.3.2`.
+
+Version 0.3.2 adds independent TX/RX measurement markers on **DIO17**.
+Use the same image on both radios and select `AT+MARKER=TX` or
+`AT+MARKER=RX`. Each radio connects to D0 on its own PPK2.
+
+Two UART pinouts are available at 1,000,000 baud:
+
+| Build | CC1352P UART TX | CC1352P UART RX |
+| --- | --- | --- |
+| ESP32 | DIO13 | DIO12 |
+| CH340 | DIO12 | DIO13 |
+
+Build with `scripts/build-e79-at-modem.ps1 -UartPinout ESP32` or
+`-UartPinout CH340`. The script checks the generated pins and saves
+versioned images and build metadata for each pinout. Choose the matching
+image when updating a board.
+
+The RX marker covers sync detection through packet completion or abort;
+it excludes prior listening, preamble and sync acquisition. See the
+[firmware reference](firmware/e79_at_modem/README.md) and
+[0.3.2 validation](VALIDATION-0.3.2.md) for wiring and measured scope.
+
 
 ## Repository roles
 

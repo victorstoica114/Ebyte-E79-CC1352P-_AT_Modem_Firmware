@@ -7,9 +7,10 @@ LNK = "$(GCC_ARMCOMPILER)/bin/arm-none-eabi-gcc"
 HEX = "$(GCC_ARMCOMPILER)/bin/arm-none-eabi-objcopy"
 
 SYSCONFIG_GUI_TOOL = $(dir $(SYSCONFIG_TOOL))sysconfig_gui$(suffix $(SYSCONFIG_TOOL))
+E79_SYSCFG ?= ../e79_at_modem.syscfg
 SYSCFG_CMD_STUB = $(SYSCONFIG_TOOL) --compiler gcc --product $(SIMPLELINK_CC13XX_CC26XX_SDK_INSTALL_DIR)/.metadata/product.json
 SYSCFG_GUI_CMD_STUB = $(SYSCONFIG_GUI_TOOL) --compiler gcc --product $(SIMPLELINK_CC13XX_CC26XX_SDK_INSTALL_DIR)/.metadata/product.json
-SYSCFG_FILES := $(shell $(SYSCFG_CMD_STUB) --listGeneratedFiles --listReferencedFiles --output . ../e79_at_modem.syscfg)
+SYSCFG_FILES := $(shell $(SYSCFG_CMD_STUB) --listGeneratedFiles --listReferencedFiles --output . $(E79_SYSCFG))
 
 SYSCFG_C_FILES = $(filter %.c,$(SYSCFG_FILES))
 SYSCFG_H_FILES = $(filter %.h,$(SYSCFG_FILES))
@@ -66,7 +67,7 @@ all: $(NAME).hex $(NAME).bin
 $(SYSCFG_FILES): syscfg
 	@ echo generation complete
 
-syscfg: ../e79_at_modem.syscfg
+syscfg: $(E79_SYSCFG)
 	@ echo Generating configuration files...
 	@ $(SYSCFG_CMD_STUB) --output $(@D) $<
 
@@ -78,7 +79,7 @@ $(SYSCONFIG_GUI_TOOL):
         (in your SDK's imports.mak) to a standalone SysConfig installation \
         rather than one inside CCS)
 
-syscfg-gui: ../e79_at_modem.syscfg $(SYSCONFIG_GUI_TOOL)
+syscfg-gui: $(E79_SYSCFG) $(SYSCONFIG_GUI_TOOL)
 	@ echo Opening SysConfig GUI
 	@ $(SYSCFG_GUI_CMD_STUB) $<
 
